@@ -1,6 +1,5 @@
 
 #include <time.h>
-#include <getopt.h>
 #include <iostream>
 #include <cstddef>
 #include <cmath>
@@ -162,41 +161,6 @@ private:
 		return t.tv_sec*1000000000 + t.tv_nsec;
 	}
 };
-
-/* for nice plot: N = 40, timeSteps = 400 */
-struct Config {
-	Coord N = 40;
-	TimeStepCount timeSteps = 400;
-	bool outputEnabled = false;
-};
-
-Config parse_cli(int argc, char **argv) {
-	Config conf;
-
-	int c;
-	while (1) {
-		c = getopt(argc, argv, "n:t:o");
-		if (c == -1)
-			break;
-
-		switch (c) {
-			case 'n':
-				conf.N = std::stoull(optarg);
-				break;
-			case 't':
-				conf.timeSteps = std::stoull(optarg);
-				break;
-			case 'o':
-				conf.outputEnabled = true;
-				break;
-		}
-	}
-
-	std::cerr << "N = " << conf.N << ", timeSteps = " << conf.timeSteps << ", output = " << conf.outputEnabled
-	          << std::endl;
-
-	return conf;
-}
 
 /*
  * Must be defined on (0.0, 1.0)x(0.0, 1.0) surface

@@ -304,8 +304,12 @@ private:
 };
 
 
-int main() {
+int main(int argc, char **argv) {
+	auto conf = parse_cli(argc, argv);
+
 	ClusterManager clusterManager;
+	Comms comm(conf.N);
+	Workspace w(conf.N, 0.0, clusterManager, comm);
 
 	std::cout << "parallel algorithm" << std::endl;
 
