@@ -8,6 +8,7 @@
 #include <mpi.h>
 #include <getopt.h>
 #include <limits>
+#include <cmath>
 
 // @todo modified while working on parallel, possible source of bugs
 using Coord = long long;
@@ -54,6 +55,17 @@ Config parse_cli(int argc, char **argv) {
 	          << std::endl;
 
 	return conf;
+}
+
+/*
+ * Must be defined on (0.0, 1.0)x(0.0, 1.0) surface
+ */
+NumType f(NumType x, NumType y) {
+	return sin(M_PI*x)*sin(M_PI*y);
+}
+
+NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, const NumType vij) {
+	return 0.25*(v_i_j + v_ij + vi_j + vij);
 }
 
 

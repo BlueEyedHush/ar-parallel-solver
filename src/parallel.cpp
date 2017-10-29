@@ -17,17 +17,14 @@ enum Neighbour {
 
 class ClusterManager {
 public:
-	ClusterManager() {
+	ClusterManager(const Coord N) : bitBucket(0) {
 		MPI_Init(nullptr, nullptr);
 		MPI_Comm_rank(comm, &nodeId);
 		MPI_Comm_size(comm, &nodeCount);
 
 		auto sqr = static_cast<long>(std::sqrt(nodeCount));
 		if(sqr*sqr != nodeCount) {
-			if(nodeId == 0) {
-				err_log() << "Number of nodes must be power of some integer (got " << nodeCount << " )" << std::endl;
-			}
-
+			master_err_log() << "Number of nodes must be power of some integer (got " << nodeCount << " )" << std::endl;
 			throw std::runtime_error("incorrect node count!");
 		} else {
 			sideLen = sqr;
@@ -37,6 +34,7 @@ public:
 		column = nodeId%sideLen;
 
 		initNeighbours();
+		calcOffsets(N);
 
 		err_log() << "Cluster initialized successfully. I'm (" << row << "," << column << ")" << std::endl;
 	}
@@ -54,10 +52,23 @@ public:
 		return std::cerr;
 	}
 
+	std::ostream& master_err_log() {
+		if(nodeId == 0) {
+			std::cerr << "[" << nodeId << "] ";
+			return std::cerr;
+		} else {
+			return bitBucket;
+		}
+	}
+
 	int* getNeighbours() {
 		return &neighbours[0];
 	}
 
+	Coord getNpart() { return n_part; }
+	NumType getStep() { return step; }
+	NumType getXoffset() {return offset_nx*step; }
+	NumType getYoffset() {return offset_ny*step; }
 
 	MPI_Comm getComm() {
 		return comm;
@@ -78,12 +89,19 @@ private:
 	int column;
 	int neighbours[4];
 
+	Coord offset_nx;
+	Coord offset_ny;
+	Coord n_part;
+	NumType step;
+
+	std::ostream bitBucket;
+
 	void initNeighbours() {
 		if(row == 0) { neighbours[Neighbour::TOP] = N_INVALID; }
-		else { neighbours[Neighbour::TOP] = nodeId-sideLen; }
+		else { neighbours[Neighbour::TOP] = nodeId+sideLen; }
 
 		if(row == sideLen-1) { neighbours[Neighbour::BOTTOM] = N_INVALID; }
-		else { neighbours[Neighbour::BOTTOM] = nodeId+sideLen; }
+		else { neighbours[Neighbour::BOTTOM] = nodeId-sideLen; }
 
 		if(column == 0) { neighbours[Neighbour::LEFT] = N_INVALID; }
 		else { neighbours[Neighbour::LEFT] = nodeId-1; }
@@ -96,6 +114,25 @@ private:
 	          << " TOP: " << neighbours[TOP]
 	          << " RIGHT: " << neighbours[RIGHT]
 	          << " BOTTOM: " << neighbours[BOTTOM] << std::endl;
+	}
+
+	void calcOffsets(const Coord N) {
+		if(N % sideLen != 0) {
+			master_err_log() << "N not divisible by sqrt(nodeNumber): N = " << N << ", sideLen = " << sideLen
+			                 << std::endl;
+			throw std::runtime_error("incorrect N!");
+		}
+
+		n_part = N/sideLen;
+		step = 1.0/N;
+		offset_nx = n_part*column;
+		offset_ny = n_part*row;
+
+		err_log() << "n_slice: " << n_part
+		          << ", (x,y) offset: (" << offset_nx*step << "," << offset_ny*step << ")"
+		          << ", step: " << step
+		          << std::endl;
+
 	}
 };
 
@@ -307,9 +344,14 @@ private:
 int main(int argc, char **argv) {
 	auto conf = parse_cli(argc, argv);
 
-	ClusterManager clusterManager;
-	Comms comm(conf.N);
-	Workspace w(conf.N, 0.0, clusterManager, comm);
+	ClusterManager clusterManager(conf.N);
+	auto n_slice = clusterManager.getNpart();
+	auto x_offset = clusterManager.getXoffset();
+	auto y_offset = clusterManager.getYoffset();
+	auto step = clusterManager.getStep();
+
+	Comms comm(n_slice);
+	Workspace w(n_slice, 0.0, clusterManager, comm);
 
 	std::cout << "parallel algorithm" << std::endl;
 

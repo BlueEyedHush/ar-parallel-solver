@@ -2,7 +2,6 @@
 #include <time.h>
 #include <iostream>
 #include <cstddef>
-#include <cmath>
 #include <string>
 #include <fstream>
 #include <functional>
@@ -161,18 +160,6 @@ private:
 		return t.tv_sec*1000000000 + t.tv_nsec;
 	}
 };
-
-/*
- * Must be defined on (0.0, 1.0)x(0.0, 1.0) surface
- */
-NumType f(NumType x, NumType y) {
-	return sin(M_PI*x)*sin(M_PI*y);
-}
-
-NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, const NumType vij) {
-	return 0.25*(v_i_j + v_ij + vi_j + vij);
-}
-
 
 int main(int argc, char **argv) {
 	auto conf = parse_cli(argc, argv);
