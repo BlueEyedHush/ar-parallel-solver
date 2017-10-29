@@ -97,11 +97,11 @@ private:
 	std::ostream bitBucket;
 
 	void initNeighbours() {
-		if(row == 0) { neighbours[Neighbour::TOP] = N_INVALID; }
-		else { neighbours[Neighbour::TOP] = nodeId+sideLen; }
-
-		if(row == sideLen-1) { neighbours[Neighbour::BOTTOM] = N_INVALID; }
+		if(row == 0) { neighbours[Neighbour::BOTTOM] = N_INVALID; }
 		else { neighbours[Neighbour::BOTTOM] = nodeId-sideLen; }
+
+		if(row == sideLen-1) { neighbours[Neighbour::TOP] = N_INVALID; }
+		else { neighbours[Neighbour::TOP] = nodeId+sideLen; }
 
 		if(column == 0) { neighbours[Neighbour::LEFT] = N_INVALID; }
 		else { neighbours[Neighbour::LEFT] = nodeId-1; }
