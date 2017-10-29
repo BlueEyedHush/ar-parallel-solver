@@ -6,6 +6,11 @@
 #include <cstring>
 #include "shared.h"
 
+/**
+ * ToDo
+ * - log prefixing not needed!
+ */
+
 const int N_INVALID = -1;
 
 enum Neighbour {
@@ -144,18 +149,23 @@ public:
 
 	void exchange(int targetId, NumType* sendBuffer, NumType* receiveBuffer) {
 		MPI_Isend(sendBuffer, innerLength, NUM_MPI_DT, targetId, 1, MPI_COMM_WORLD, rq + nextId);
-		MPI_Irecv(receiveBuffer, innerLength, NUM_MPI_DT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, rq + nextId + 1);
+		MPI_Irecv(receiveBuffer, innerLength, NUM_MPI_DT, targetId, MPI_ANY_TAG, MPI_COMM_WORLD, rq + nextId + 1);
 
 		nextId += 2;
 	}
 
 	void wait() {
-		int toFinish = nextId;
-		while(toFinish > 0) {
-			int finished = 0;
-			MPI_Waitsome(RQ_COUNT, rq, &finished, idxArray, MPI_STATUSES_IGNORE);
-			toFinish -= finished;
+		std::cerr << "NextId: " << nextId << std::endl;
+		for(int i = 0; i < nextId; i++) {
+			int finished;
+			MPI_Waitany(nextId, rq, &finished, MPI_STATUSES_IGNORE);
+			#ifdef DEBUG
+			std::cerr << "Finished " << finished << ". Already done " << i+1 << std::endl;
+			#endif
 		}
+		#ifdef DEBUG
+		std::cerr << "Wait finished" << std::endl;
+		#endif
 	}
 
 	void reset() {
@@ -371,10 +381,21 @@ int main(int argc, char **argv) {
 
 	w.swap(false);
 
-
 	for(TimeStepCount step = 0; step < conf.timeSteps; step++) {
+		#ifdef DEBUG
+		std::cerr << "Entering timestep loop, step = " << step << std::endl;
+		#endif
+
 		for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
+			#ifdef DEBUG
+			std::cerr << "Entering X loop, x = " << x_idx << std::endl;
+			#endif
+
 			for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
+				#ifdef DEBUG
+				std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
+				#endif DEBUG
+
 				auto eq_val = equation(
 						w.elb(x_idx - 1, y_idx),
 						w.elb(x_idx, y_idx - 1),
@@ -386,12 +407,25 @@ int main(int argc, char **argv) {
 			}
 		}
 
+		#ifdef DEBUG
+		std::cerr << "Before swap, step = " << step << std::endl;
+		#endif
+
 		w.swap();
+
+		#ifdef DEBUG
+		std::cerr << "Entering file dump" << std::endl;
+		#endif
+
 		if (conf.outputEnabled && step % dumpEvery == 0) {
 			d.dumpBackbuffer(w, step/dumpEvery);
 		}
+
+		#ifdef DEBUG
+		std::cerr << "After dump, step = " << step << std::endl;
+		#endif
 	}
 
-
+	std::cerr << "Terminating" << std::endl;
 	return 0;
 }

@@ -7,12 +7,15 @@
 
 #include <mpi.h>
 #include <getopt.h>
+#include <cassert>
 #include <limits>
 #include <cmath>
 #include <iostream>
 #include <sstream>
 #include <functional>
 #include <fstream>
+
+// #define DEBUG
 
 // @todo modified while working on parallel, possible source of bugs
 using Coord = long long;
@@ -28,7 +31,7 @@ const TimeStepCount DUMP_TEMPORAL_FREQUENCY = 100;
 
 /* for nice plot: N = 40, timeSteps = 400 */
 struct Config {
-	Coord N = 40;
+	Coord N = 100;
 	TimeStepCount timeSteps = 400;
 	bool outputEnabled = false;
 };
@@ -70,6 +73,10 @@ public:
 		auto edgeLen  = w.getEdgeLength();
 		auto step = edgeLen/linearDensity;
 
+		assert(step > 0);
+
+		std::cerr << edgeLen << " " << step << std::endl;
+
 		filename.str("");
 		filename << prefix << "_" << t;
 		auto fname = filename.str();
@@ -77,6 +84,10 @@ public:
 		std::ofstream file;
 		file.open(fname);
 		file.precision(NumPrecision);
+
+		#ifdef DEBUG
+		std::cerr << "dumping" << std::endl;
+		#endif
 
 		loop(edgeLen, step, [=, &w, &file](const Coord i) {
 			loop(edgeLen, step, [=, &w, &file](const Coord j) {
@@ -87,6 +98,11 @@ public:
 
 			file << std::endl;
 		});
+
+
+		#ifdef DEBUG
+		std::cerr << "dump finished" << std::endl;
+		#endif
 
 		file.close();
 	}
