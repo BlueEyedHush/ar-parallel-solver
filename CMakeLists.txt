@@ -3,5 +3,15 @@ project(lab1)
 
 set(CMAKE_CXX_STANDARD 14)
 
-set(SEQ_SOURCE_FILES main.cpp)
+# sequential variant
+set(SEQ_SOURCE_FILES src/seq.cpp)
 add_executable(seq ${SEQ_SOURCE_FILES})
+
+# parallel variant
+find_package(MPI REQUIRED)
+
+include_directories(${MPI_INCLUDE_PATH})
+
+set(PAR_SOURCE_FILES src/parallel.cpp)
+add_executable(parallel ${PAR_SOURCE_FILES})
+target_link_libraries(parallel ${MPI_LIBRARIES})
