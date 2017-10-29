@@ -24,7 +24,7 @@ public:
 		auto sqr = static_cast<long>(std::sqrt(nodeCount));
 		if(sqr*sqr != nodeCount) {
 			if(nodeId == 0) {
-				std::cerr << "Number of nodes must be power of some integer (got " << nodeCount << " )" << std::endl;
+				err_log() << "Number of nodes must be power of some integer (got " << nodeCount << " )" << std::endl;
 			}
 
 			throw std::runtime_error("incorrect node count!");
@@ -37,7 +37,7 @@ public:
 
 		initNeighbours();
 
-		std::cerr << "Cluster initialized successfully. I'm (" << row << "," << column << ")" << std::endl;
+		err_log() << "Cluster initialized successfully. I'm (" << row << "," << column << ")" << std::endl;
 	}
 
 	int getNodeCount() {
@@ -46,6 +46,11 @@ public:
 
 	int getNodeId() {
 		return nodeId;
+	}
+
+	std::ostream& err_log() {
+		std::cerr << "[" << nodeId << "] ";
+		return std::cerr;
 	}
 
 	MPI_Comm getComm() {
@@ -69,22 +74,22 @@ private:
 
 	void initNeighbours() {
 		if(row == 0) { neighbours[Neighbour::TOP] = N_INVALID; }
-		else { neighbours[Neighbour::TOP] = row-1; }
+		else { neighbours[Neighbour::TOP] = nodeId-sideLen; }
 
 		if(row == sideLen-1) { neighbours[Neighbour::BOTTOM] = N_INVALID; }
-		else { neighbours[Neighbour::BOTTOM] = row+1; }
+		else { neighbours[Neighbour::BOTTOM] = nodeId+sideLen; }
 
 		if(column == 0) { neighbours[Neighbour::LEFT] = N_INVALID; }
-		else { neighbours[Neighbour::LEFT] = column-1; }
+		else { neighbours[Neighbour::LEFT] = nodeId-1; }
 
 		if(column == sideLen-1) { neighbours[Neighbour::RIGHT] = N_INVALID; }
-		else { neighbours[Neighbour::RIGHT] = column+1; }
+		else { neighbours[Neighbour::RIGHT] = nodeId+1; }
 
-		std::cerr << "Neighbours: "
-		          << " LEFT: " << neighbours[LEFT]
-		          << " TOP: " << neighbours[TOP]
-		          << " RIGHT: " << neighbours[RIGHT]
-		          << " BOTTOM: " << neighbours[BOTTOM] << std::endl;
+		err_log() << "Neighbours: "
+	          << " LEFT: " << neighbours[LEFT]
+	          << " TOP: " << neighbours[TOP]
+	          << " RIGHT: " << neighbours[RIGHT]
+	          << " BOTTOM: " << neighbours[BOTTOM] << std::endl;
 	}
 };
 
