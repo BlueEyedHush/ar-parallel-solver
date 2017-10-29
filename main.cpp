@@ -68,6 +68,10 @@ private:
 
 };
 
+#define I(IDX) IDX+1
+#define V(IDX) (IDX+1)*1.0/N
+#define VR(IDX) IDX*1.0/N
+
 class FileDumper {
 public:
 	FileDumper(const std::string targetFile) {
@@ -82,8 +86,12 @@ public:
 	void dumpBackbuffer(Workspace& w, const NumType t) {
 		for(size_t i = 0; i < w.getEdgeLength(); i++) {
 			for(size_t j = 0; j < w.getEdgeLength(); j++) {
-				file << i << " " << j << " " << t << " " << w.elb(i,j) << std::endl;
+				auto x = VR(i);
+				auto y = VR(j);
+				file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
 			}
+
+			file << std::endl;
 		}
 	}
 
@@ -98,7 +106,7 @@ NumType f(NumType x, NumType y) {
 	return sin(M_PI*x)*sin(M_PI*y);
 }
 
-#define I(IDX) IDX+1
+
 
 int main() {
 	std::cout << "Sequential variant" << std::endl;
@@ -108,9 +116,9 @@ int main() {
 
 	/* fill in boundary condition */
 	w.zeroBuffers(0.0);
-	for(size_t x = 0; x < N; x++) {
-		for(size_t y = 0; y < N; y++) {
-			w.elf(I(x),I(y)) = f(x,y);
+	for(size_t x_idx = 0; x_idx < N; x_idx++) {
+		for(size_t y_idx = 0; y_idx < N; y_idx++) {
+			w.elf(I(x_idx),I(y_idx)) = f(V(x_idx),V(y_idx));
 		}
 	}
 
