@@ -5,6 +5,15 @@
 #include <cmath>
 #include "shared.h"
 
+const int N_INVALID = -1;
+
+enum Neighbour {
+	LEFT = 0,
+	TOP = 1,
+	RIGHT = 2,
+	BOTTOM = 3,
+};
+
 class ClusterManager {
 public:
 	ClusterManager() {
@@ -23,7 +32,12 @@ public:
 			sideLen = sqr;
 		}
 
-		std::cerr << "Cluster initialized successfully" << std::endl;
+		row = nodeId/sideLen;
+		column = nodeId%sideLen;
+
+		initNeighbours();
+
+		std::cerr << "Cluster initialized successfully. I'm (" << row << "," << column << ")" << std::endl;
 	}
 
 	int getNodeCount() {
@@ -43,10 +57,35 @@ public:
 	}
 
 private:
+	const static auto comm = MPI_COMM_WORLD;
+
 	int nodeCount;
 	int sideLen;
 	int nodeId;
-	const static auto comm = MPI_COMM_WORLD;
+
+	int row;
+	int column;
+	int neighbours[4];
+
+	void initNeighbours() {
+		if(row == 0) { neighbours[Neighbour::TOP] = N_INVALID; }
+		else { neighbours[Neighbour::TOP] = row-1; }
+
+		if(row == sideLen-1) { neighbours[Neighbour::BOTTOM] = N_INVALID; }
+		else { neighbours[Neighbour::BOTTOM] = row+1; }
+
+		if(column == 0) { neighbours[Neighbour::LEFT] = N_INVALID; }
+		else { neighbours[Neighbour::LEFT] = column-1; }
+
+		if(column == sideLen-1) { neighbours[Neighbour::RIGHT] = N_INVALID; }
+		else { neighbours[Neighbour::RIGHT] = column+1; }
+
+		std::cerr << "Neighbours: "
+		          << " LEFT: " << neighbours[LEFT]
+		          << " TOP: " << neighbours[TOP]
+		          << " RIGHT: " << neighbours[RIGHT]
+		          << " BOTTOM: " << neighbours[BOTTOM] << std::endl;
+	}
 };
 
 
