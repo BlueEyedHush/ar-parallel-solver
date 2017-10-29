@@ -4,7 +4,7 @@ reset
 set term gif animate
 set output "animate.gif"
 set view map
-set yrange [0:1]
+set yrange [0:1.15]
 set xrange [0:1]
 set cbrange [0:1]
 n=100 # temporal frequency
