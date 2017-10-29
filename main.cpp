@@ -1,4 +1,5 @@
 
+#include <time.h>
 #include <iostream>
 #include <cstddef>
 #include <cmath>
@@ -12,6 +13,7 @@ using Coord = size_t;
 using TimeStepCount = size_t;
 using NumType = double;
 const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
+using Duration = long long;
 
 /* dimension of inner work area (without border) */
 const Coord N = 50;
@@ -128,6 +130,48 @@ private:
 	}
 };
 
+class Timer {
+public:
+	Timer() {
+		resetTm(tm);
+		clock_getres(CLOCK, &tm);
+		std::cerr << "Clock resolution: " << tm.tv_sec << " s " << tm.tv_nsec << " ns" << std::endl;
+		resetTm(tm);
+	}
+
+	void start() {
+		clock_gettime(CLOCK, &tm);
+	}
+
+	Duration stop() {
+		timespec endTm;
+		resetTm(endTm);
+
+		clock_gettime(CLOCK, &endTm);
+
+		Duration start = conv(tm);
+		Duration end = conv(endTm);
+
+		return end - start;
+	}
+
+private:
+	const static auto CLOCK = CLOCK_MONOTONIC;
+	timespec tm;
+
+	void resetTm(timespec& t) {
+		t.tv_sec = 0;
+		t.tv_nsec = 0;
+	}
+
+	/**
+	 * @return value in us
+	 */
+	Duration conv(timespec& t) {
+		return t.tv_sec*1000000000 + t.tv_nsec;
+	}
+};
+
 /*
  * Must be defined on (0.0, 1.0)x(0.0, 1.0) surface
  */
@@ -141,11 +185,13 @@ NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, co
 
 
 int main() {
-	std::cout << "Sequential variant" << std::endl;
+	std::cerr << "Sequential variant" << std::endl;
 
+	Timer timer;
 	Workspace w(N);
 	FileDumper d("./results/t");
 
+	timer.start();
 	/* fill in boundary condition */
 	w.zeroBuffers(0.0);
 	for(Coord x_idx = 0; x_idx < N; x_idx++) {
@@ -178,6 +224,10 @@ int main() {
 			d.dumpBackbuffer(w, step/dumpEvery);
 		}
 	}
+
+	auto duration = timer.stop();
+	std::cout << duration << std::endl;
+	std::cerr << ((double)duration)/1000000000 << " s" << std::endl;
 
 	return 0;
 }
