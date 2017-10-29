@@ -115,16 +115,67 @@ public:
 	}
 
 	void set_elf(const Coord x, const Coord y, const NumType value) {
-		// front[outerLength*x+y];
+		// copying to send buffers occurs during comms phase
+		front[x*innerLength+y] = value;
 	}
 
 	NumType get_elb(const Coord x, const Coord y) {
-		return 0.0;
+		if(x == -1) {
+			if(y == -1) {
+				// conrner - invalid query, we never ask about it
+				throw std::runtime_error("corner access!");
+			} else if (y == innerLength+1) {
+				// corner - invalid query
+				throw std::runtime_error("corner access!");
+			} else {
+				// left outer border
+				if(neigh[LEFT] != N_INVALID) {
+					return outerEdge[LEFT][y];
+				} else {
+					return borderCond;
+				}
+			}	
+		} else if (x == innerLength+1) {
+			if(y == -1) {
+				// conrner - invalid query, we never ask about it
+				throw std::runtime_error("corner access!");
+			} else if (y == innerLength+1) {
+				// corner - invalid query
+				throw std::runtime_error("corner access!");
+			} else {
+				// right outer border
+				if(neigh[RIGHT] != N_INVALID) {
+					return outerEdge[RIGHT][y];
+				} else {
+					return borderCond;
+				}
+			}
+		} else {
+			if(y == -1) {
+				// top edge
+				if(neigh[TOP] != N_INVALID) {
+					return outerEdge[TOP][x];
+				} else {
+					return borderCond;
+				}
+			} else if (y == innerLength+1) {
+				// bottom edge
+				if(neigh[BOTTOM] != N_INVALID) {
+					return outerEdge[BOTTOM][x];
+				} else {
+					return borderCond;
+				}
+			} else {
+				// coords within main area
+				return back[x*innerLength+y];
+			}
+		}
 	}
 
 	Coord getLength() {return innerLength;}
 
 	void swap() {
+		// @todo: comms here!
 		NumType* tmp = front;
 		front = back;
 		back = tmp;
