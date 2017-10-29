@@ -64,13 +64,10 @@ private:
 
 };
 
-#define I(IDX) IDX+1
-#define V(IDX) (IDX+1)*1.0/N
-#define VR(IDX) IDX*1.0/N
 
 class FileDumper {
 public:
-	FileDumper(const std::string prefix) : prefix(prefix) {}
+	FileDumper(const std::string prefix, const Coord N) : prefix(prefix), N(N) {}
 
 	void dumpBackbuffer(Workspace& w, const Coord t, const Coord linearDensity = DUMP_SPATIAL_FREQUENCY) {
 		auto edgeLen  = w.getEdgeLength();
@@ -86,8 +83,8 @@ public:
 
 		loop(edgeLen, step, [=, &w, &file](const Coord i) {
 			loop(edgeLen, step, [=, &w, &file](const Coord j) {
-				auto x = VR(i);
-				auto y = VR(j);
+				auto x = vr(i);
+				auto y = vr(j);
 				file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
 			});
 
@@ -99,6 +96,7 @@ public:
 
 private:
 	const std::string prefix;
+	const Coord N;
 	std::ostringstream filename;
 
 	void loop(const Coord limit, const Coord step, std::function<void(const Coord)> f) {
@@ -115,6 +113,10 @@ private:
 
 			i += step;
 		}
+	}
+
+	NumType vr(const Coord idx) {
+		return idx*1.0/N;
 	}
 };
 
@@ -160,6 +162,23 @@ private:
 	}
 };
 
+/* for nice plot: N = 40, timeSteps = 400 */
+struct Config {
+	Coord N;
+	TimeStepCount timeSteps;
+	bool outputEnabled;
+};
+
+Config parse_cli(int argc, char **argv) {
+	Config c;
+
+	c.N = 40;
+	c.timeSteps = 400;
+	c.outputEnabled = false;
+
+	return c;
+}
+
 /*
  * Must be defined on (0.0, 1.0)x(0.0, 1.0) surface
  */
@@ -172,32 +191,36 @@ NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, co
 }
 
 
-int main() {
-	std::cerr << "Sequential variant" << std::endl;
+int main(int argc, char **argv) {
+	auto conf = parse_cli(argc, argv);
 
 	Timer timer;
-	Workspace w(N);
-	FileDumper d("./results/t");
+	Workspace w(conf.N);
+	FileDumper d("./results/t", conf.N);
+
+	#define I(IDX) IDX+1
+	#define V(IDX) (IDX+1)*1.0/conf.N
+
+	/* calculate helper values */
+	const NumType h = 1.0/conf.N;
+	const NumType k = h*h/4.0;
+	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 
 	timer.start();
 	/* fill in boundary condition */
 	w.zeroBuffers(0.0);
-	for(Coord x_idx = 0; x_idx < N; x_idx++) {
-		for(Coord y_idx = 0; y_idx < N; y_idx++) {
+	for(Coord x_idx = 0; x_idx < conf.N; x_idx++) {
+		for(Coord y_idx = 0; y_idx < conf.N; y_idx++) {
 			w.elf(I(x_idx),I(y_idx)) = f(V(x_idx),V(y_idx));
 		}
 	}
 
 	w.swap();
 
-	/* calculate helper values */
-	const NumType h = 1.0/N;
-	const NumType k = h*h/4.0;
-	const TimeStepCount dumpEvery = STEPS_TO_SIMULATE/DUMP_TEMPORAL_FREQUENCY;
 
-	for(TimeStepCount step = 0; step < STEPS_TO_SIMULATE; step++) {
-		for(Coord x_idx = 0; x_idx < N; x_idx++) {
-			for(Coord y_idx = 0; y_idx < N; y_idx++) {
+	for(TimeStepCount step = 0; step < conf.timeSteps; step++) {
+		for(Coord x_idx = 0; x_idx < conf.N; x_idx++) {
+			for(Coord y_idx = 0; y_idx < conf.N; y_idx++) {
 				w.elf(I(x_idx), I(y_idx)) = equation(
 					 w.elb(I(x_idx-1), I(y_idx-1)),
 					 w.elb(I(x_idx+1), I(y_idx-1)),
