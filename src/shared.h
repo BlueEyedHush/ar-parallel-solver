@@ -7,7 +7,8 @@
 
 #include <limits>
 
-using Coord = size_t;
+// @todo modified while working on parallel, possible source of bugs
+using Coord = long long;
 using TimeStepCount = size_t;
 using NumType = double;
 const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
