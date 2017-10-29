@@ -6,6 +6,7 @@
 #include <string>
 #include <fstream>
 #include <functional>
+#include <sstream>
 
 using Coord = size_t;
 using TimeStepCount = size_t;
@@ -14,9 +15,9 @@ const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
 
 /* dimension of inner work area (without border) */
 const Coord N = 1000;
-const TimeStepCount STEPS_TO_SIMULATE = 100;
-const Coord DUMP_SPATIAL_DENSITY_DEF = 25;
-const TimeStepCount DUMP_TEMPORAL_DENSITY = 10;
+const TimeStepCount STEPS_TO_SIMULATE = 500;
+const Coord DUMP_SPATIAL_FREQUENCY = 25;
+const TimeStepCount DUMP_TEMPORAL_FREQUENCY = 100;
 
 /**
  * Work area is indexed from 1 (first element) to size (last element)
@@ -79,32 +80,36 @@ private:
 
 class FileDumper {
 public:
-	FileDumper(const std::string targetFile) {
-		file.open(targetFile);
-		file.precision(NumPrecision);
-	}
+	FileDumper(const std::string prefix) : prefix(prefix) {}
 
-	~FileDumper() {
-		file.close();
-	}
-
-	void dumpBackbuffer(Workspace& w, const NumType t, const Coord linearDensity = DUMP_SPATIAL_DENSITY_DEF) {
+	void dumpBackbuffer(Workspace& w, const Coord t, const Coord linearDensity = DUMP_SPATIAL_FREQUENCY) {
 		auto edgeLen  = w.getEdgeLength();
 		auto step = edgeLen/linearDensity;
 
-		loop(edgeLen, step, [=, &w](const Coord i) {
-			loop(edgeLen, step, [=, &w](const Coord j) {
+		filename.str("");
+		filename << prefix << "_" << t;
+		auto fname = filename.str();
+
+		std::ofstream file;
+		file.open(fname);
+		file.precision(NumPrecision);
+
+		loop(edgeLen, step, [=, &w, &file](const Coord i) {
+			loop(edgeLen, step, [=, &w, &file](const Coord j) {
 				auto x = VR(i);
 				auto y = VR(j);
-				this->file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
+				file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
 			});
 
 			file << std::endl;
 		});
+
+		file.close();
 	}
 
 private:
-	std::ofstream file;
+	const std::string prefix;
+	std::ostringstream filename;
 
 	void loop(const Coord limit, const Coord step, std::function<void(const Coord)> f) {
 		bool iShouldContinue = true;
@@ -139,7 +144,7 @@ int main() {
 	std::cout << "Sequential variant" << std::endl;
 
 	Workspace w(N);
-	FileDumper d("./results");
+	FileDumper d("./results/t");
 
 	/* fill in boundary condition */
 	w.zeroBuffers(0.0);
@@ -151,11 +156,10 @@ int main() {
 
 	w.swap();
 
-	d.dumpBackbuffer(w, 0.0);
-
 	/* calculate helper values */
 	const NumType h = 1.0/N;
 	const NumType k = h*h/4.0;
+	const TimeStepCount dumpEvery = STEPS_TO_SIMULATE/DUMP_TEMPORAL_FREQUENCY;
 
 	for(TimeStepCount step = 0; step < STEPS_TO_SIMULATE; step++) {
 		for(Coord x_idx = 0; x_idx < N; x_idx++) {
@@ -170,8 +174,8 @@ int main() {
 		}
 
 		w.swap();
-		if (step % DUMP_TEMPORAL_DENSITY) {
-			d.dumpBackbuffer(w, k*step);
+		if (step % dumpEvery == 0) {
+			d.dumpBackbuffer(w, step/dumpEvery);
 		}
 	}
 
