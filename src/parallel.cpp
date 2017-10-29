@@ -194,7 +194,7 @@ public:
 		front[x*innerLength+y] = value;
 	}
 
-	NumType get_elb(const Coord x, const Coord y) {
+	NumType elb(const Coord x, const Coord y) {
 		if(x == -1) {
 			if(y == -1) {
 				// conrner - invalid query, we never ask about it
@@ -247,7 +247,7 @@ public:
 		}
 	}
 
-	Coord getLength() {return innerLength;}
+	Coord getEdgeLength() {return innerLength;}
 
 	void swap(bool comms = true) {
 		if(comms) {
@@ -341,6 +341,11 @@ private:
 	}
 };
 
+std::string filenameGenerator(int nodeId) {
+	std::ostringstream oss;
+	oss << "./results/" << nodeId << "_t";
+	return oss.str();
+}
 
 int main(int argc, char **argv) {
 	auto conf = parse_cli(argc, argv);
@@ -353,6 +358,9 @@ int main(int argc, char **argv) {
 
 	Comms comm(n_slice);
 	Workspace w(n_slice, 0.0, clusterManager, comm);
+
+	FileDumper<Workspace> d(filenameGenerator(clusterManager.getNodeId()), conf.N);
+	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 
 	for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
 		for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
@@ -368,10 +376,10 @@ int main(int argc, char **argv) {
 		for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
 			for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
 				auto eq_val = equation(
-						w.get_elb(x_idx-1, y_idx),
-						w.get_elb(x_idx, y_idx-1),
-						w.get_elb(x_idx+1, y_idx),
-						w.get_elb(x_idx, y_idx+1)
+						w.elb(x_idx - 1, y_idx),
+						w.elb(x_idx, y_idx - 1),
+						w.elb(x_idx + 1, y_idx),
+						w.elb(x_idx, y_idx + 1)
 				);
 
 				w.set_elf(x_idx, y_idx, eq_val);
@@ -379,6 +387,9 @@ int main(int argc, char **argv) {
 		}
 
 		w.swap();
+		if (conf.outputEnabled && step % dumpEvery == 0) {
+			d.dumpBackbuffer(w, step/dumpEvery);
+		}
 	}
 
 
