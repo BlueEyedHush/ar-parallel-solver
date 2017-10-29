@@ -8,12 +8,15 @@
 #include <functional>
 
 using Coord = size_t;
+using TimeStepCount = size_t;
 using NumType = double;
 const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
 
 /* dimension of inner work area (without border) */
 const Coord N = 1000;
+const TimeStepCount STEPS_TO_SIMULATE = 100;
 const Coord DUMP_SPATIAL_DENSITY_DEF = 25;
+const TimeStepCount DUMP_TEMPORAL_DENSITY = 10;
 
 /**
  * Work area is indexed from 1 (first element) to size (last element)
@@ -127,6 +130,9 @@ NumType f(NumType x, NumType y) {
 	return sin(M_PI*x)*sin(M_PI*y);
 }
 
+NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, const NumType vij) {
+	return 0.25*(v_i_j + v_ij + v_ij + vij);
+}
 
 
 int main() {
@@ -137,8 +143,8 @@ int main() {
 
 	/* fill in boundary condition */
 	w.zeroBuffers(0.0);
-	for(size_t x_idx = 0; x_idx < N; x_idx++) {
-		for(size_t y_idx = 0; y_idx < N; y_idx++) {
+	for(Coord x_idx = 0; x_idx < N; x_idx++) {
+		for(Coord y_idx = 0; y_idx < N; y_idx++) {
 			w.elf(I(x_idx),I(y_idx)) = f(V(x_idx),V(y_idx));
 		}
 	}
@@ -146,6 +152,28 @@ int main() {
 	w.swap();
 
 	d.dumpBackbuffer(w, 0.0);
+
+	/* calculate helper values */
+	const NumType h = 1.0/N;
+	const NumType k = h*h/4.0;
+
+	for(TimeStepCount step = 0; step < STEPS_TO_SIMULATE; step++) {
+		for(Coord x_idx = 0; x_idx < N; x_idx++) {
+			for(Coord y_idx = 0; y_idx < N; y_idx++) {
+				w.elf(I(x_idx), I(y_idx)) = equation(
+					 w.elb(I(x_idx-1), I(y_idx-1)),
+					 w.elb(I(x_idx+1), I(y_idx-1)),
+					 w.elb(I(x_idx-1), I(y_idx+1)),
+					 w.elb(I(x_idx-1), I(y_idx+1))
+				);
+			}
+		}
+
+		w.swap();
+		if (step % DUMP_TEMPORAL_DENSITY) {
+			d.dumpBackbuffer(w, k*step);
+		}
+	}
 
 	return 0;
 }
