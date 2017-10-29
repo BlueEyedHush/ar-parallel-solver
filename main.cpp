@@ -14,8 +14,8 @@ using NumType = double;
 const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
 
 /* dimension of inner work area (without border) */
-const Coord N = 1000;
-const TimeStepCount STEPS_TO_SIMULATE = 500;
+const Coord N = 50;
+const TimeStepCount STEPS_TO_SIMULATE = 400;
 const Coord DUMP_SPATIAL_FREQUENCY = 25;
 const TimeStepCount DUMP_TEMPORAL_FREQUENCY = 100;
 
@@ -136,7 +136,7 @@ NumType f(NumType x, NumType y) {
 }
 
 NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, const NumType vij) {
-	return 0.25*(v_i_j + v_ij + v_ij + vij);
+	return 0.25*(v_i_j + v_ij + vi_j + vij);
 }
 
 
@@ -168,7 +168,7 @@ int main() {
 					 w.elb(I(x_idx-1), I(y_idx-1)),
 					 w.elb(I(x_idx+1), I(y_idx-1)),
 					 w.elb(I(x_idx-1), I(y_idx+1)),
-					 w.elb(I(x_idx-1), I(y_idx+1))
+					 w.elb(I(x_idx+1), I(y_idx+1))
 				);
 			}
 		}
