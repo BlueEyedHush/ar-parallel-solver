@@ -3,6 +3,7 @@
 #include <exception>
 #include <iostream>
 #include <cmath>
+#include <cstring>
 #include "shared.h"
 
 const int N_INVALID = -1;
@@ -153,15 +154,15 @@ public:
 		} else {
 			if(y == -1) {
 				// top edge
-				if(neigh[TOP] != N_INVALID) {
-					return outerEdge[TOP][x];
+				if(neigh[BOTTOM] != N_INVALID) {
+					return outerEdge[BOTTOM][x];
 				} else {
 					return borderCond;
 				}
 			} else if (y == innerLength+1) {
 				// bottom edge
-				if(neigh[BOTTOM] != N_INVALID) {
-					return outerEdge[BOTTOM][x];
+				if(neigh[TOP] != N_INVALID) {
+					return outerEdge[TOP][x];
 				} else {
 					return borderCond;
 				}
@@ -176,9 +177,8 @@ public:
 
 	void swap() {
 		// @todo: comms here!
-		NumType* tmp = front;
-		front = back;
-		back = tmp;
+		copyInnerEdgesToBuffers();
+		swapBuffers();
 	}
 
 private:
@@ -232,6 +232,27 @@ private:
 		return base + innerLength*x + y;
 	}
 
+	void swapBuffers() {
+		NumType* tmp = front;
+		front = back;
+		back = tmp;
+	}
+
+	void copyInnerEdgesToBuffers() {
+		#define LOOP(EDGE, X, Y, BUFF) \
+		if(neigh[EDGE] != N_INVALID) { \
+			for(Coord i = 0; i < innerLength; i++) { \
+				innerEdge[EDGE][i] = *elAddress(X,Y,BUFF); \
+			} \
+		}
+
+		LOOP(TOP, i, innerLength-1, front)
+		LOOP(BOTTOM, i, 0, front)
+		LOOP(LEFT, 0, i, front)
+		LOOP(RIGHT, innerLength-1, i, front)
+
+		#undef LOOP
+	}
 };
 
 
