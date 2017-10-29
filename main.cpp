@@ -5,6 +5,7 @@
 #include <limits>
 #include <string>
 #include <fstream>
+#include <functional>
 
 using Coord = size_t;
 using NumType = double;
@@ -12,6 +13,7 @@ const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
 
 /* dimension of inner work area (without border) */
 const Coord N = 1000;
+const Coord DUMP_SPATIAL_DENSITY_DEF = 25;
 
 /**
  * Work area is indexed from 1 (first element) to size (last element)
@@ -51,7 +53,7 @@ public:
 		}
 	}
 
-	Coord getEdgeLength() {return innerLength+2;}
+	Coord getEdgeLength() {return outerLength;}
 
 	void swap() {
 		NumType* tmp = front;
@@ -83,20 +85,39 @@ public:
 		file.close();
 	}
 
-	void dumpBackbuffer(Workspace& w, const NumType t) {
-		for(size_t i = 0; i < w.getEdgeLength(); i++) {
-			for(size_t j = 0; j < w.getEdgeLength(); j++) {
+	void dumpBackbuffer(Workspace& w, const NumType t, const Coord linearDensity = DUMP_SPATIAL_DENSITY_DEF) {
+		auto edgeLen  = w.getEdgeLength();
+		auto step = edgeLen/linearDensity;
+
+		loop(edgeLen, step, [=, &w](const Coord i) {
+			loop(edgeLen, step, [=, &w](const Coord j) {
 				auto x = VR(i);
 				auto y = VR(j);
-				file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
-			}
+				this->file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
+			});
 
 			file << std::endl;
-		}
+		});
 	}
 
 private:
 	std::ofstream file;
+
+	void loop(const Coord limit, const Coord step, std::function<void(const Coord)> f) {
+		bool iShouldContinue = true;
+		size_t i = 0;
+
+		while(iShouldContinue) {
+			if(i >= limit) {
+				i = limit-1;
+				iShouldContinue = false;
+			}
+
+			f(i);
+
+			i += step;
+		}
+	}
 };
 
 /*
