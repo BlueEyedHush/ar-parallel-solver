@@ -99,13 +99,50 @@ private:
 	}
 };
 
+class Comms {
+public:
+	Comms(const Coord innerLength) : innerLength(innerLength) {
+		reset();
+	}
+
+	void exchange(int targetId, NumType* sendBuffer, NumType* receiveBuffer) {
+		MPI_Isend(sendBuffer, innerLength, NUM_MPI_DT, targetId, 1, MPI_COMM_WORLD, rq + nextId);
+		MPI_Irecv(receiveBuffer, innerLength, NUM_MPI_DT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, rq + nextId + 1);
+
+		nextId += 2;
+	}
+
+	void wait() {
+		int toFinish = nextId;
+		while(toFinish > 0) {
+			int finished = 0;
+			MPI_Waitsome(RQ_COUNT, rq, &finished, idxArray, MPI_STATUSES_IGNORE);
+			toFinish -= finished;
+		}
+	}
+
+	void reset() {
+		for(int i = 0; i < RQ_COUNT; i++) {
+			rq[i] = MPI_REQUEST_NULL;
+		}
+		nextId = 0;
+	}
+
+private:
+	const static int RQ_COUNT = 8;
+	const Coord innerLength;
+	MPI_Request rq[RQ_COUNT];
+	int idxArray[RQ_COUNT];
+	int nextId;
+};
+
 /**
  * Work area is indexed from 1 (first element) to size (last element)
  */
 class Workspace {
 public:
-	Workspace(const Coord size, const NumType borderCond, ClusterManager& cm)
-			: innerLength(size), actualSize(size*size), cm(cm), borderCond(borderCond)
+	Workspace(const Coord size, const NumType borderCond, ClusterManager& cm, Comms& comm)
+			: innerLength(size), actualSize(size*size), cm(cm), borderCond(borderCond), comm(comm)
 	{
 		neigh = cm.getNeighbours();
 		allocateBuffers();
@@ -178,11 +215,22 @@ public:
 	void swap() {
 		// @todo: comms here!
 		copyInnerEdgesToBuffers();
+
+		comm.reset();
+		for(int i = 0; i < 4; i++) {
+			auto iThNeigh = neigh[i];
+			if(iThNeigh != N_INVALID) {
+				comm.exchange(iThNeigh, innerEdge[i], outerEdge[i]);
+			}
+		}
+		comm.wait();
+
 		swapBuffers();
 	}
 
 private:
 	ClusterManager& cm;
+	Comms& comm;
 	int* neigh;
 
 	const Coord innerLength;

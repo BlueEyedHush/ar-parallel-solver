@@ -5,12 +5,14 @@
 #ifndef LAB1_SHARED_H
 #define LAB1_SHARED_H
 
+#include <mpi.h>
 #include <limits>
 
 // @todo modified while working on parallel, possible source of bugs
 using Coord = long long;
 using TimeStepCount = size_t;
 using NumType = double;
+const MPI_Datatype NUM_MPI_DT = MPI_DOUBLE;
 const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
 using Duration = long long;
 
