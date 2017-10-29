@@ -67,15 +67,26 @@ Config parse_cli(int argc, char **argv) {
 template <typename W>
 class FileDumper {
 public:
-	FileDumper(const std::string prefix, const Coord N) : prefix(prefix), N(N) {}
+	FileDumper(const std::string prefix,
+	           const Coord n_partition,
+	           const NumType offset_x,
+	           const NumType offset_y,
+	           const NumType step)
+			: prefix(prefix), N(n_partition), offset_x(offset_x), offset_y(offset_y), step(step) {}
 
 	void dumpBackbuffer(W& w, const Coord t, const Coord linearDensity = DUMP_SPATIAL_FREQUENCY) {
+		#ifdef DEBUG
+		std::cerr << "offset_x: " << offset_x << ", offset_y: " << offset_y << std::endl;
+		#endif
+
 		auto edgeLen  = w.getEdgeLength();
 		auto step = edgeLen/linearDensity;
 
 		assert(step > 0);
 
+		#ifdef DEBUG
 		std::cerr << edgeLen << " " << step << std::endl;
+		#endif
 
 		filename.str("");
 		filename << prefix << "_" << t;
@@ -91,8 +102,8 @@ public:
 
 		loop(edgeLen, step, [=, &w, &file](const Coord i) {
 			loop(edgeLen, step, [=, &w, &file](const Coord j) {
-				auto x = vr(i);
-				auto y = vr(j);
+				auto x = vr_x(i);
+				auto y = vr_y(j);
 				file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
 			});
 
@@ -112,6 +123,10 @@ private:
 	const Coord N;
 	std::ostringstream filename;
 
+	const NumType offset_x;
+	const NumType offset_y;
+	const NumType step;
+
 	void loop(const Coord limit, const Coord step, std::function<void(const Coord)> f) {
 		bool iShouldContinue = true;
 		size_t i = 0;
@@ -128,8 +143,12 @@ private:
 		}
 	}
 
-	NumType vr(const Coord idx) {
-		return idx*1.0/N;
+	NumType vr_x(const Coord idx) {
+		return offset_x + idx*step;
+	}
+
+	NumType vr_y(const Coord idx) {
+		return offset_y + idx*step;
 	}
 };
 

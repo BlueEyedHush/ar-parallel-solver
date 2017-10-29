@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
 
 	Timer timer;
 	Workspace w(conf.N);
-	FileDumper<Workspace> d("./results/t", conf.N);
+	FileDumper<Workspace> d("./results/t", conf.N, 0.0, 0.0, 1.0/conf.N);
 
 	#define I(IDX) IDX+1
 	#define V(IDX) (IDX+1)*1.0/conf.N

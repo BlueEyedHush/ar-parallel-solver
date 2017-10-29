@@ -2,6 +2,8 @@
 
 pushd cmake-build-release
 
+rm -rf temp
+
 mkdir results
 mkdir temp
 

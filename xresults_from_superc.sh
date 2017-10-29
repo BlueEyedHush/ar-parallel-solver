@@ -16,5 +16,11 @@ else
     exit 1
 fi
 
+TARGET_DIR="$DIR/cmake-build-release/results-parts/"
+rm -rf "$TARGET_DIR"
+mkdir -p "$TARGET_DIR"
+
 PASS=`cat $DIR/pass`
-sshpass -p "$PASS" rsync -avzr plgblueeyedhush@$MACHINE:ar-lab1/cmake-build-release/results cmake-build-release/results-parts/
+sshpass -p "$PASS" rsync -avzr plgblueeyedhush@$MACHINE:ar-lab1/cmake-build-release/results "$TARGET_DIR"
+mv "$TARGET_DIR"/results/* "$TARGET_DIR"
+rmdir "$TARGET_DIR"/results

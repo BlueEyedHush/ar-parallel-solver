@@ -155,7 +155,9 @@ public:
 	}
 
 	void wait() {
+		#ifdef DEBUG
 		std::cerr << "NextId: " << nextId << std::endl;
+		#endif
 		for(int i = 0; i < nextId; i++) {
 			int finished;
 			MPI_Waitany(nextId, rq, &finished, MPI_STATUSES_IGNORE);
@@ -369,7 +371,7 @@ int main(int argc, char **argv) {
 	Comms comm(n_slice);
 	Workspace w(n_slice, 0.0, clusterManager, comm);
 
-	FileDumper<Workspace> d(filenameGenerator(clusterManager.getNodeId()), conf.N);
+	FileDumper<Workspace> d(filenameGenerator(clusterManager.getNodeId()), n_slice, x_offset, y_offset, step);
 	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 
 	for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
@@ -394,7 +396,7 @@ int main(int argc, char **argv) {
 			for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
 				#ifdef DEBUG
 				std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
-				#endif DEBUG
+				#endif
 
 				auto eq_val = equation(
 						w.elb(x_idx - 1, y_idx),
