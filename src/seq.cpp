@@ -178,10 +178,9 @@ int main(int argc, char **argv) {
 
 	timer.start();
 	/* fill in boundary condition */
-	w.zeroBuffers(0.0);
 	for(Coord x_idx = 0; x_idx < conf.N; x_idx++) {
 		for(Coord y_idx = 0; y_idx < conf.N; y_idx++) {
-			w.elf(I(x_idx),I(y_idx)) = f(V(x_idx),V(y_idx));
+	 		w.elf(I(x_idx),I(y_idx)) = f(V(x_idx),V(y_idx));
 		}
 	}
 
@@ -192,10 +191,10 @@ int main(int argc, char **argv) {
 		for(Coord x_idx = 0; x_idx < conf.N; x_idx++) {
 			for(Coord y_idx = 0; y_idx < conf.N; y_idx++) {
 				w.elf(I(x_idx), I(y_idx)) = equation(
-					 w.elb(I(x_idx-1), I(y_idx-1)),
-					 w.elb(I(x_idx+1), I(y_idx-1)),
-					 w.elb(I(x_idx-1), I(y_idx+1)),
-					 w.elb(I(x_idx+1), I(y_idx+1))
+					 w.elb(I(x_idx-1), I(y_idx)),
+					 w.elb(I(x_idx), I(y_idx-1)),
+					 w.elb(I(x_idx+1), I(y_idx)),
+					 w.elb(I(x_idx), I(y_idx+1))
 				);
 			}
 		}

@@ -249,18 +249,19 @@ public:
 
 	Coord getLength() {return innerLength;}
 
-	void swap() {
-		// @todo: comms here!
-		copyInnerEdgesToBuffers();
+	void swap(bool comms = true) {
+		if(comms) {
+			copyInnerEdgesToBuffers();
 
-		comm.reset();
-		for(int i = 0; i < 4; i++) {
-			auto iThNeigh = neigh[i];
-			if(iThNeigh != N_INVALID) {
-				comm.exchange(iThNeigh, innerEdge[i], outerEdge[i]);
+			comm.reset();
+			for(int i = 0; i < 4; i++) {
+				auto iThNeigh = neigh[i];
+				if(iThNeigh != N_INVALID) {
+					comm.exchange(iThNeigh, innerEdge[i], outerEdge[i]);
+				}
 			}
+			comm.wait();
 		}
-		comm.wait();
 
 		swapBuffers();
 	}
@@ -353,7 +354,33 @@ int main(int argc, char **argv) {
 	Comms comm(n_slice);
 	Workspace w(n_slice, 0.0, clusterManager, comm);
 
-	std::cout << "parallel algorithm" << std::endl;
+	for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
+		for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
+			auto f_val = f(x_offset + x_idx*step, y_offset + y_idx*step);
+			w.set_elf(x_idx, y_idx, f_val);
+		}
+	}
+
+	w.swap(false);
+
+
+	for(TimeStepCount step = 0; step < conf.timeSteps; step++) {
+		for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
+			for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
+				auto eq_val = equation(
+						w.get_elb(x_idx-1, y_idx),
+						w.get_elb(x_idx, y_idx-1),
+						w.get_elb(x_idx+1, y_idx),
+						w.get_elb(x_idx, y_idx+1)
+				);
+
+				w.set_elf(x_idx, y_idx, eq_val);
+			}
+		}
+
+		w.swap();
+	}
+
 
 	return 0;
 }
