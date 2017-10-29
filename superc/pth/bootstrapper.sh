@@ -3,6 +3,8 @@
 SCRIPT_DIR="$(readlink -e $(dirname ${BASH_SOURCE[0]}))"
 BASE_DIR="$(readlink -e $(dirname ${BASH_SOURCE[0]})/../../)"
 
+"$SCRIPT_DIR"/build.sh
+
 CMD="sbatch
     -J ar-1
     -N 1
