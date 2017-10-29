@@ -3,23 +3,11 @@
 #include <iostream>
 #include <cstddef>
 #include <cmath>
-#include <limits>
 #include <string>
 #include <fstream>
 #include <functional>
 #include <sstream>
-
-using Coord = size_t;
-using TimeStepCount = size_t;
-using NumType = double;
-const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
-using Duration = long long;
-
-/* dimension of inner work area (without border) */
-const Coord N = 50;
-const TimeStepCount STEPS_TO_SIMULATE = 400;
-const Coord DUMP_SPATIAL_FREQUENCY = 25;
-const TimeStepCount DUMP_TEMPORAL_FREQUENCY = 100;
+#include "shared.h"
 
 /**
  * Work area is indexed from 1 (first element) to size (last element)
