@@ -15,3 +15,7 @@ include_directories(${MPI_INCLUDE_PATH})
 set(PAR_SOURCE_FILES src/parallel.cpp)
 add_executable(parallel ${PAR_SOURCE_FILES})
 target_link_libraries(parallel ${MPI_LIBRARIES})
+
+set(PAR_ASYNC_SOURCE_FILES src/par_async.cpp)
+add_executable(par_async ${PAR_ASYNC_SOURCE_FILES})
+target_link_libraries(par_async ${MPI_LIBRARIES})
