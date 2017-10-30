@@ -3,7 +3,12 @@
 SCRIPT_DIR="$(readlink -e $(dirname ${BASH_SOURCE[0]}))"
 BASE_DIR="$(readlink -e $(dirname ${BASH_SOURCE[0]})/../../)"
 
-"$SCRIPT_DIR"/build.sh
+if [ -z "$1" ]; then
+    echo "Must specify executable to run"
+    exit 1
+fi
+
+"$SCRIPT_DIR"/build.sh "$1"
 
 rm -f "$BASE_DIR"/ar.se
 rm -f "$BASE_DIR"/ar.so
@@ -20,7 +25,7 @@ CMD="sbatch
     --error ar.se
     --mail-type=END,FAIL
     --mail-user=knawara112@gmail.com
-    $SCRIPT_DIR/script.sh"
+    $SCRIPT_DIR/script.sh $1"
 
 echo "$CMD"
 $CMD
