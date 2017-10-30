@@ -1,15 +1,17 @@
 import numpy as np
 import pandas as pd
 import StringIO
+import sys
 
-NODE_COUNT = 4
+NODE_COUNT = int(sys.argv[1])
+T_COUNT = int(sys.argv[2])
 
 def pread(filename):
     return pd.read_csv("cmake-build-release/results-parts/" + filename, 
                 delim_whitespace=True, header=None)
 
 concated = []
-for i in range(0, 100):
+for i in range(0, T_COUNT):
     stime = []
     for n in range(0,NODE_COUNT):
         stime.append(pread("{}_t_{}".format(n, i)))
