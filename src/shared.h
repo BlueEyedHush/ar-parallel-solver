@@ -68,7 +68,7 @@ public:
 		verify_values();
 	}
 
-	Coord get_node_side_len() {
+	int get_n_slice() {
 		return sideLen;
 	}
 
@@ -83,8 +83,8 @@ public:
 	/*
 	 * Indexing offsets across machine grid
 	 */
-	std::pair<Coord, Coord> get_indexing_offset(const int row, const int column) {
-		return std::make_pair(row*mh, column*mh);
+	std::pair<Coord, Coord> get_indexing_offset(const int node_row, const int node_column) {
+		return std::make_pair(node_row*mh, node_column*mh);
 	};
 
 	std::pair<Coord, Coord> get_indexing_offset(const int nodeId) {
@@ -98,6 +98,18 @@ public:
 	 */
 	std::pair<NumType, NumType> get_math_offset(const int i, const int j) {
 		return std::make_pair((i+1)*h, (j+1)*h);
+	};
+
+	std::pair<NumType, NumType> get_math_offset_node(const int node_row, const int node_column) {
+		Coord i, j;
+		std::tie(i, j) = get_indexing_offset(node_row, node_column);
+		return get_math_offset(i, j);
+	};
+
+	std::pair<int, int> node_id_to_grid_pos(int nodeId) {
+		const auto row = nodeId/sideLen;
+		const auto column = nodeId%sideLen;
+		return std::make_pair(row, column);
 	};
 
 private:
@@ -130,12 +142,6 @@ private:
 			mh = grid_dimm/sideLen;
 		}
 	}
-
-	std::pair<int, int> node_id_to_grid_pos(int nodeId) {
-		const auto row = nodeId/sideLen;
-		const auto column = nodeId%sideLen;
-		return std::make_pair(row, column);
-	};
 };
 
 /* for nice plot: N = 40, timeSteps = 400 */

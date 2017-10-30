@@ -27,30 +27,26 @@ public:
 		MPI_Comm_rank(comm, &nodeId);
 		MPI_Comm_size(comm, &nodeCount);
 
-		auto sqr = static_cast<long>(std::sqrt(nodeCount));
-		if(sqr*sqr != nodeCount) {
-			master_err_log() << "Number of nodes must be power of some integer (got " << nodeCount << " )" << std::endl;
-			throw std::runtime_error("incorrect node count!");
-		} else {
-			sideLen = sqr;
-		}
-
-		row = nodeId/sideLen;
-		column = nodeId%sideLen;
+		partitioner = new Partitioner(nodeCount, 0.0, 1.0, N);
+		sideLen = partitioner->get_n_slice();
+		std::tie(row, column) = partitioner->node_id_to_grid_pos(nodeId);
 
 		initNeighbours();
-		calcOffsets(N);
 
 		err_log() << "Cluster initialized successfully. I'm (" << row << "," << column << ")" << std::endl;
 	}
 
-	int getNodeCount() {
-		return nodeCount;
+	~ClusterManager() {
+		delete partitioner;
+		MPI_Finalize();
 	}
 
-	int getNodeId() {
-		return nodeId;
-	}
+	Partitioner& getPartitioner() {return *partitioner;}
+
+	int getNodeCount() { return nodeCount; }
+	int getNodeId() { return nodeId; }
+	std::pair<NumType, NumType> getOffsets() { return partitioner->get_math_offset_node(row, column); };
+	MPI_Comm getComm() { return comm; }
 
 	std::ostream& err_log() {
 		std::cerr << "[" << nodeId << "] ";
@@ -70,34 +66,19 @@ public:
 		return &neighbours[0];
 	}
 
-	Coord getNpart() { return n_part; }
-	NumType getStep() { return step; }
-	NumType getXoffset() {return offset_nx*step; }
-	NumType getYoffset() {return offset_ny*step; }
-
-	MPI_Comm getComm() {
-		return comm;
-	}
-
-	~ClusterManager() {
-		MPI_Finalize();
-	}
 
 private:
 	const static auto comm = MPI_COMM_WORLD;
 
-	int nodeCount;
-	int sideLen;
 	int nodeId;
-
+	int nodeCount;
 	int row;
 	int column;
-	int neighbours[4];
 
-	Coord offset_nx;
-	Coord offset_ny;
-	Coord n_part;
-	NumType step;
+	Partitioner *partitioner;
+
+	int sideLen;
+	int neighbours[4];
 
 	std::ostream bitBucket;
 
@@ -119,25 +100,6 @@ private:
 	          << " TOP: " << neighbours[TOP]
 	          << " RIGHT: " << neighbours[RIGHT]
 	          << " BOTTOM: " << neighbours[BOTTOM] << std::endl;
-	}
-
-	void calcOffsets(const Coord N) {
-		if(N % sideLen != 0) {
-			master_err_log() << "N not divisible by sqrt(nodeNumber): N = " << N << ", sideLen = " << sideLen
-			                 << std::endl;
-			throw std::runtime_error("incorrect N!");
-		}
-
-		n_part = N/sideLen;
-		step = 1.0/N;
-		offset_nx = n_part*column;
-		offset_ny = n_part*row;
-
-		err_log() << "n_slice: " << n_part
-		          << ", (x,y) offset: (" << offset_nx*step << "," << offset_ny*step << ")"
-		          << ", step: " << step
-		          << std::endl;
-
 	}
 };
 
@@ -184,13 +146,11 @@ private:
 	int nextId;
 };
 
-/**
- * Work area is indexed from 1 (first element) to size (last element)
- */
+
 class Workspace {
 public:
-	Workspace(const Coord size, const NumType borderCond, ClusterManager& cm, Comms& comm)
-			: innerLength(size), actualSize(size*size), cm(cm), borderCond(borderCond), comm(comm)
+	Workspace(const Coord innerSize, const NumType borderCond, ClusterManager& cm, Comms& comm)
+			: innerLength(innerSize), actualSize(innerSize*innerSize), cm(cm), borderCond(borderCond), comm(comm)
 	{
 		neigh = cm.getNeighbours();
 		fillBuffers();
@@ -256,7 +216,7 @@ public:
 		}
 	}
 
-	Coord getEdgeLength() {return innerLength;}
+	Coord getInnerLength() {return innerLength;}
 
 	void swap(bool comms = true) {
 		if(comms) {
@@ -359,34 +319,32 @@ std::string filenameGenerator(int nodeId) {
 int main(int argc, char **argv) {
 	auto conf = parse_cli(argc, argv);
 
-	ClusterManager clusterManager(conf.N);
-	auto n_slice = clusterManager.getNpart();
-	auto x_offset = clusterManager.getXoffset();
-	auto y_offset = clusterManager.getYoffset();
-	auto step = clusterManager.getStep();
+	ClusterManager cm(conf.N);
+	auto n_slice = cm.getPartitioner().get_n_slice();
+	Coord x_offset, y_offset;
+	std::tie(x_offset, y_offset) = cm.getOffsets();
+	auto h = cm.getPartitioner().get_h();
 
 	Comms comm(n_slice);
-	Workspace w(n_slice, 0.0, clusterManager, comm);
+	Workspace w(n_slice, 0.0, cm, comm);
 
-	FileDumper<Workspace> d(filenameGenerator(clusterManager.getNodeId()), n_slice, x_offset, y_offset, step, 0);
+	FileDumper<Workspace> d(filenameGenerator(cm.getNodeId()), n_slice, x_offset, y_offset, h);
 	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 
 	Timer timer;
 
-	MPI_Barrier(clusterManager.getComm());
+	MPI_Barrier(cm.getComm());
 	timer.start();
 
 	for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
 		for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
-			auto x_i = x_idx;
-			auto y_i = y_idx;
-			auto x = x_offset + (x_idx+1)*step;
-			auto y = y_offset + (y_idx+1)*step;
+			auto x = x_offset + x_idx*h;
+			auto y = y_offset + y_idx*h;
 			auto val = f(x,y);
-			w.set_elf(x_i,y_i, val);
+			w.set_elf(x_idx,y_idx, val);
 
 			#ifdef DEBUG
-			std::cerr << "[" << x_i << "," << y_i <<"] "
+			std::cerr << "[" << x_idx << "," << y_idx <<"] "
 			          << "(" << x << "," << y << ") -> "
 			          << val << std::endl;
 			#endif
@@ -395,9 +353,9 @@ int main(int argc, char **argv) {
 
 	w.swap();
 
-	for(TimeStepCount step = 0; step < conf.timeSteps; step++) {
+	for(TimeStepCount ts = 0; ts < conf.timeSteps; ts++) {
 		#ifdef DEBUG
-		std::cerr << "Entering timestep loop, step = " << step << std::endl;
+		std::cerr << "Entering timestep loop, ts = " << ts << std::endl;
 		#endif
 
 		for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
@@ -422,7 +380,7 @@ int main(int argc, char **argv) {
 		}
 
 		#ifdef DEBUG
-		std::cerr << "Before swap, step = " << step << std::endl;
+		std::cerr << "Before swap, ts = " << ts << std::endl;
 		#endif
 
 		w.swap();
@@ -431,19 +389,19 @@ int main(int argc, char **argv) {
 		std::cerr << "Entering file dump" << std::endl;
 		#endif
 
-		if (conf.outputEnabled && step % dumpEvery == 0) {
-			d.dumpBackbuffer(w, step/dumpEvery);
+		if (conf.outputEnabled && ts % dumpEvery == 0) {
+			d.dumpBackbuffer(w, ts/dumpEvery);
 		}
 
 		#ifdef DEBUG
-		std::cerr << "After dump, step = " << step << std::endl;
+		std::cerr << "After dump, ts = " << ts << std::endl;
 		#endif
 	}
 
-	MPI_Barrier(clusterManager.getComm());
+	MPI_Barrier(cm.getComm());
 	auto duration = timer.stop();
 
-	if(clusterManager.getNodeId() == 0) {
+	if(cm.getNodeId() == 0) {
 		std::cout << duration << std::endl;
 		std::cerr << ((double)duration)/1000000000 << " s" << std::endl;
 	}
