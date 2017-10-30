@@ -181,7 +181,6 @@ private:
 	const static int RQ_COUNT = 8;
 	const Coord innerLength;
 	MPI_Request rq[RQ_COUNT];
-	int idxArray[RQ_COUNT];
 	int nextId;
 };
 
@@ -211,7 +210,7 @@ public:
 			if(y == -1) {
 				// conrner - invalid query, we never ask about it
 				throw std::runtime_error("corner access!");
-			} else if (y == innerLength+1) {
+			} else if (y == innerLength) {
 				// corner - invalid query
 				throw std::runtime_error("corner access!");
 			} else {
@@ -222,11 +221,11 @@ public:
 					return borderCond;
 				}
 			}	
-		} else if (x == innerLength+1) {
+		} else if (x == innerLength) {
 			if(y == -1) {
 				// conrner - invalid query, we never ask about it
 				throw std::runtime_error("corner access!");
-			} else if (y == innerLength+1) {
+			} else if (y == innerLength) {
 				// corner - invalid query
 				throw std::runtime_error("corner access!");
 			} else {
@@ -245,7 +244,7 @@ public:
 				} else {
 					return borderCond;
 				}
-			} else if (y == innerLength+1) {
+			} else if (y == innerLength) {
 				// bottom edge
 				if(neigh[TOP] != N_INVALID) {
 					return outerEdge[TOP][x];
@@ -410,12 +409,6 @@ int main(int argc, char **argv) {
 		}
 
 		#ifdef DEBUG
-		std::cerr << "Before swap, step = " << step << std::endl;
-		#endif
-
-		w.swap();
-
-		#ifdef DEBUG
 		std::cerr << "Entering file dump" << std::endl;
 		#endif
 
@@ -425,7 +418,13 @@ int main(int argc, char **argv) {
 
 		#ifdef DEBUG
 		std::cerr << "After dump, step = " << step << std::endl;
+
 		#endif
+		#ifdef DEBUG
+		std::cerr << "Before swap, step = " << step << std::endl;
+		#endif
+
+		w.swap();
 	}
 
 	std::cerr << "Terminating" << std::endl;
