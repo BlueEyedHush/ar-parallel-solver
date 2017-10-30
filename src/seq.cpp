@@ -65,21 +65,30 @@ int main(int argc, char **argv) {
 
 	Timer timer;
 	Workspace w(conf.N);
-	FileDumper<Workspace> d("./results/t", conf.N, 0.0, 0.0, 1.0/conf.N);
+	FileDumper<Workspace> d("./results/t", conf.N, 0.0, 0.0, 1.0/conf.N, 1);
 
 	#define I(IDX) IDX+1
 	#define V(IDX) (IDX+1)*1.0/conf.N
 
 	/* calculate helper values */
-	const NumType h = 1.0/conf.N;
-	const NumType k = h*h/4.0;
 	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 
 	timer.start();
 	/* fill in boundary condition */
 	for(Coord x_idx = 0; x_idx < conf.N; x_idx++) {
 		for(Coord y_idx = 0; y_idx < conf.N; y_idx++) {
-	 		w.elf(I(x_idx),I(y_idx)) = f(V(x_idx),V(y_idx));
+	 		auto x_i = I(x_idx);
+			auto y_i = I(y_idx);
+			auto x = V(x_idx);
+			auto y = V(y_idx);
+			auto val = f(x,y);
+			w.elf(x_i,y_i) = val;
+
+			#ifdef DEBUG
+			std::cerr << "[" << x_i-1 << "," << y_i-1 <<"] "
+			          << "(" << x << "," << y << ") -> "
+			          << val << std::endl;
+			#endif
 		}
 	}
 

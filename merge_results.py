@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import StringIO
 
+NODE_COUNT = 1
+
 def pread(filename):
     return pd.read_csv("cmake-build-release/results-parts/" + filename, 
                 delim_whitespace=True, header=None)
@@ -9,7 +11,7 @@ def pread(filename):
 concated = []
 for i in range(0, 100):
     stime = []
-    for n in range(0,4):
+    for n in range(0,NODE_COUNT):
         stime.append(pread("{}_t_{}".format(n, i)))
         
     c = pd.concat(stime)

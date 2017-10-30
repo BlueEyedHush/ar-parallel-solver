@@ -193,7 +193,7 @@ public:
 			: innerLength(size), actualSize(size*size), cm(cm), borderCond(borderCond), comm(comm)
 	{
 		neigh = cm.getNeighbours();
-		allocateBuffers();
+		fillBuffers();
 	}
 
 	~Workspace() {
@@ -238,14 +238,12 @@ public:
 			}
 		} else {
 			if(y == -1) {
-				// top edge
 				if(neigh[BOTTOM] != N_INVALID) {
 					return outerEdge[BOTTOM][x];
 				} else {
 					return borderCond;
 				}
 			} else if (y == innerLength) {
-				// bottom edge
 				if(neigh[TOP] != N_INVALID) {
 					return outerEdge[TOP][x];
 				} else {
@@ -295,7 +293,7 @@ private:
 	NumType *front;
 	NumType *back;
 
-	void allocateBuffers() {
+	void fillBuffers() {
 		front = new NumType[actualSize];
 		back = new NumType[actualSize];
 
@@ -370,7 +368,7 @@ int main(int argc, char **argv) {
 	Comms comm(n_slice);
 	Workspace w(n_slice, 0.0, clusterManager, comm);
 
-	FileDumper<Workspace> d(filenameGenerator(clusterManager.getNodeId()), n_slice, x_offset, y_offset, step);
+	FileDumper<Workspace> d(filenameGenerator(clusterManager.getNodeId()), n_slice, x_offset, y_offset, step, 0);
 	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 
 	Timer timer;
@@ -380,12 +378,22 @@ int main(int argc, char **argv) {
 
 	for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
 		for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
-			auto f_val = f(x_offset + x_idx*step, y_offset + y_idx*step);
-			w.set_elf(x_idx, y_idx, f_val);
+			auto x_i = x_idx;
+			auto y_i = y_idx;
+			auto x = x_offset + (x_idx+1)*step;
+			auto y = y_offset + (y_idx+1)*step;
+			auto val = f(x,y);
+			w.set_elf(x_i,y_i, val);
+
+			#ifdef DEBUG
+			std::cerr << "[" << x_i << "," << y_i <<"] "
+			          << "(" << x << "," << y << ") -> "
+			          << val << std::endl;
+			#endif
 		}
 	}
 
-	w.swap(false);
+	w.swap();
 
 	for(TimeStepCount step = 0; step < conf.timeSteps; step++) {
 		#ifdef DEBUG
@@ -414,6 +422,12 @@ int main(int argc, char **argv) {
 		}
 
 		#ifdef DEBUG
+		std::cerr << "Before swap, step = " << step << std::endl;
+		#endif
+
+		w.swap();
+
+		#ifdef DEBUG
 		std::cerr << "Entering file dump" << std::endl;
 		#endif
 
@@ -423,13 +437,7 @@ int main(int argc, char **argv) {
 
 		#ifdef DEBUG
 		std::cerr << "After dump, step = " << step << std::endl;
-
 		#endif
-		#ifdef DEBUG
-		std::cerr << "Before swap, step = " << step << std::endl;
-		#endif
-
-		w.swap();
 	}
 
 	MPI_Barrier(clusterManager.getComm());
