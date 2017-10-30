@@ -72,6 +72,8 @@ private:
 
 
 int main(int argc, char **argv) {
+	std::cerr << __FILE__ << std::endl;
+
 	auto conf = parse_cli(argc, argv);
 
 	Partitioner p(1, 0.0, 1.0, conf.N);

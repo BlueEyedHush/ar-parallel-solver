@@ -16,7 +16,7 @@ rm -f "$BASE_DIR"/ar.so
 CMD="sbatch
     -J ar-1
     -N 1
-    --ntasks-per-node 1
+    --ntasks-per-node 4
     --mem 1gb
     --time=00:10:00
     -A ccbmc6

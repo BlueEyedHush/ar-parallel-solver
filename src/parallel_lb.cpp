@@ -285,6 +285,8 @@ std::string filenameGenerator(int nodeId) {
 }
 
 int main(int argc, char **argv) {
+	std::cerr << __FILE__ << std::endl;
+
 	auto conf = parse_cli(argc, argv);
 
 	ClusterManager cm(conf.N);
