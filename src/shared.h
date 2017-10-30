@@ -184,6 +184,19 @@ auto get_freq_sel(const TimeStepCount stepsCount) {
 	return f;
 }
 
+auto sel_first_k_policy(TimeStepCount k) {
+	std::function<bool(const Coord)> f = [k](const Coord t) mutable {
+		if(k > 0) {
+			k--;
+			return true;
+		} else {
+			return false;
+		}
+	};
+
+	return f;
+}
+
 /**
  * It doesn't plot borders, so it always queries workspace from 0 to size-1
  */

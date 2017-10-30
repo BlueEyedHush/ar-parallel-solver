@@ -303,7 +303,7 @@ int main(int argc, char **argv) {
 	                        x_offset,
 	                        y_offset,
 	                        h,
-	                        get_freq_sel(conf.timeSteps));
+	                        sel_first_k_policy(200));
 
 	Timer timer;
 
