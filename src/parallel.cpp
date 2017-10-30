@@ -28,7 +28,7 @@ public:
 		MPI_Comm_size(comm, &nodeCount);
 
 		partitioner = new Partitioner(nodeCount, 0.0, 1.0, N);
-		sideLen = partitioner->get_n_slice();
+		sideLen = partitioner->get_nodes_grid_dimm();
 		std::tie(row, column) = partitioner->node_id_to_grid_pos(nodeId);
 
 		initNeighbours();

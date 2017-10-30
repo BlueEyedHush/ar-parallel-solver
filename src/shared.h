@@ -69,7 +69,7 @@ public:
 	}
 
 	int get_n_slice() {
-		return sideLen;
+		return mh;
 	}
 
 	Coord partition_inner_size() {
@@ -111,6 +111,10 @@ public:
 		const auto column = nodeId%sideLen;
 		return std::make_pair(row, column);
 	};
+
+	int get_nodes_grid_dimm() {
+		return sideLen;
+	}
 
 private:
 	/* characteristics of node grid */
@@ -193,18 +197,22 @@ public:
 			: prefix(prefix), N(n_partition), offset_x(offset_x), offset_y(offset_y), step(step) {}
 
 	void dumpBackbuffer(W& w, const Coord t, const Coord keep_snapshots = DUMP_SPATIAL_FREQUENCY) {
-		#ifdef DEBUG
-		std::cerr << "offset_x: " << offset_x << ", offset_y: " << offset_y << std::endl;
-		#endif
 
 		auto edgeLen  = w.getInnerLength();
 		auto step = edgeLen/keep_snapshots;
 
-		assert(step > 0);
-
 		#ifdef DEBUG
-		std::cerr << edgeLen << " " << step << std::endl;
+		std::cerr << "edgeLen: " << edgeLen
+				  << "keep_snapshots" << keep_snapshots
+		          << " step: " << step
+		          << " offset_x: " << offset_x
+		          << " offset_y: " << offset_y
+		          << std::endl;
 		#endif
+
+		if(step < 1) {
+			throw std::runtime_error("FileDumper: step == 0 -> infinite iteration");
+		}
 
 		filename.str("");
 		filename << prefix << "_" << t;
