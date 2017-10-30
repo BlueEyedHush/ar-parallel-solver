@@ -373,6 +373,11 @@ int main(int argc, char **argv) {
 	FileDumper<Workspace> d(filenameGenerator(clusterManager.getNodeId()), n_slice, x_offset, y_offset, step);
 	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 
+	Timer timer;
+
+	MPI_Barrier(clusterManager.getComm());
+	timer.start();
+
 	for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
 		for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
 			auto f_val = f(x_offset + x_idx*step, y_offset + y_idx*step);
@@ -427,6 +432,17 @@ int main(int argc, char **argv) {
 		w.swap();
 	}
 
+	MPI_Barrier(clusterManager.getComm());
+	auto duration = timer.stop();
+
+	if(clusterManager.getNodeId() == 0) {
+		std::cout << duration << std::endl;
+		std::cerr << ((double)duration)/1000000000 << " s" << std::endl;
+	}
+
+	#ifdef DEBUG
 	std::cerr << "Terminating" << std::endl;
+	#endif
+
 	return 0;
 }

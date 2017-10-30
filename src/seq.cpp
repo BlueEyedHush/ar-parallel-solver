@@ -60,49 +60,6 @@ private:
 };
 
 
-
-class Timer {
-public:
-	Timer() {
-		resetTm(tm);
-		clock_getres(CLOCK, &tm);
-		std::cerr << "Clock resolution: " << tm.tv_sec << " s " << tm.tv_nsec << " ns" << std::endl;
-		resetTm(tm);
-	}
-
-	void start() {
-		clock_gettime(CLOCK, &tm);
-	}
-
-	Duration stop() {
-		timespec endTm;
-		resetTm(endTm);
-
-		clock_gettime(CLOCK, &endTm);
-
-		Duration start = conv(tm);
-		Duration end = conv(endTm);
-
-		return end - start;
-	}
-
-private:
-	const static auto CLOCK = CLOCK_MONOTONIC;
-	timespec tm;
-
-	void resetTm(timespec& t) {
-		t.tv_sec = 0;
-		t.tv_nsec = 0;
-	}
-
-	/**
-	 * @return value in us
-	 */
-	Duration conv(timespec& t) {
-		return t.tv_sec*1000000000 + t.tv_nsec;
-	}
-};
-
 int main(int argc, char **argv) {
 	auto conf = parse_cli(argc, argv);
 
