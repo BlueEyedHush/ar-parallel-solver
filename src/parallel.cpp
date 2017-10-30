@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
 
 	ClusterManager cm(conf.N);
 	auto n_slice = cm.getPartitioner().get_n_slice();
-	Coord x_offset, y_offset;
+	NumType x_offset, y_offset;
 	std::tie(x_offset, y_offset) = cm.getOffsets();
 	auto h = cm.getPartitioner().get_h();
 

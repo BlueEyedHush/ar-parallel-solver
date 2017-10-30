@@ -42,6 +42,13 @@ const TimeStepCount DUMP_TEMPORAL_FREQUENCY = 100;
  * global offset of nodes in partition is (0, n_partitioned)
  * but if we want math offset, we get (0, (n_partitioned+1)*h) /because of boundary being outside/
  *
+ * Node-to-carthesian system mapping:
+ * | 2 | 3 |
+ * | 0 | 1 |
+ * node_row no -> y
+ * node_column no -> x
+ * _don't mix indexing within workspace/any other array into it_ (just remember how you did it and be consistent)
+ *
  * WRONG!
  * if points in-between, then we have h/2 from the boundary
  *   it shouldn't be a problem, since boundary is 0 everywhere? (but outside, not inside)
@@ -80,30 +87,14 @@ public:
 		return h;
 	}
 
-	/*
-	 * Indexing offsets across machine grid
-	 */
-	std::pair<Coord, Coord> get_indexing_offset(const int node_row, const int node_column) {
-		return std::make_pair(node_row*mh, node_column*mh);
-	};
-
-	std::pair<Coord, Coord> get_indexing_offset(const int nodeId) {
-		int row, column;
-		std::tie(row, column) = node_id_to_grid_pos(nodeId);
-		return get_indexing_offset(row, column);
-	};
 
 	/**
 	 * Math offsets across point grid
 	 */
-	std::pair<NumType, NumType> get_math_offset(const int i, const int j) {
-		return std::make_pair((i+1)*h, (j+1)*h);
-	};
-
 	std::pair<NumType, NumType> get_math_offset_node(const int node_row, const int node_column) {
-		Coord i, j;
-		std::tie(i, j) = get_indexing_offset(node_row, node_column);
-		return get_math_offset(i, j);
+		auto x = (node_column*mh + 1)*h;
+		auto y = (node_row*mh + 1)*h;
+		return std::make_pair(x,y);
 	};
 
 	std::pair<int, int> node_id_to_grid_pos(int nodeId) {

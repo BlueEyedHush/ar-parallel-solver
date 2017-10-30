@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import StringIO
 
-NODE_COUNT = 1
+NODE_COUNT = 4
 
 def pread(filename):
     return pd.read_csv("cmake-build-release/results-parts/" + filename, 
