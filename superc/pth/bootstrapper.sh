@@ -8,6 +8,12 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+TPN="$2"
+if [ -z "$2" ]; then
+    TPN=4
+fi
+
+
 "$SCRIPT_DIR"/build.sh "$1"
 
 rm -f "$BASE_DIR"/ar.se
@@ -16,7 +22,7 @@ rm -f "$BASE_DIR"/ar.so
 CMD="sbatch
     -J ar-1
     -N 1
-    --ntasks-per-node 4
+    --ntasks-per-node $TPN
     --mem 1gb
     --time=00:10:00
     -A ccbmc6
