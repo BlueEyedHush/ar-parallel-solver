@@ -79,15 +79,15 @@ int main(int argc, char **argv) {
 	Partitioner p(1, 0.0, 1.0, conf.N);
 
 	/* calculate helper values */
-	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
 	const NumType h = p.get_h();
 	const Coord n = p.partition_inner_size();
 
 	Timer timer;
 	Workspace w(conf.N);
 	NumType x_off, y_off;
-	std::tie(x_off, y_off) = p.get_math_offset(0,0);
-	FileDumper<Workspace> d("./results/t", n, x_off, y_off, h);
+	std::tie(x_off, y_off) = p.get_math_offset_node(0,0);
+
+	FileDumper<Workspace> d("./results/t", n, x_off, y_off, h, get_freq_sel(conf.timeSteps));
 
 	timer.start();
 	/* fill in boundary condition */
@@ -121,8 +121,8 @@ int main(int argc, char **argv) {
 		}
 
 		w.swap();
-		if (conf.outputEnabled && step % dumpEvery == 0) {
-			d.dumpBackbuffer(w, step/dumpEvery);
+		if (unlikely(conf.outputEnabled)) {
+			d.dumpBackbuffer(w, step);
 		}
 	}
 

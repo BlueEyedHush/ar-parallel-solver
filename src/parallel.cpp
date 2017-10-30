@@ -330,8 +330,12 @@ int main(int argc, char **argv) {
 	Comms comm(n_slice);
 	Workspace w(n_slice, 0.0, cm, comm);
 
-	FileDumper<Workspace> d(filenameGenerator(cm.getNodeId()), n_slice, x_offset, y_offset, h);
-	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
+	FileDumper<Workspace> d(filenameGenerator(cm.getNodeId()),
+	                        n_slice,
+	                        x_offset,
+	                        y_offset,
+	                        h,
+	                        get_freq_sel(conf.timeSteps));
 
 	Timer timer;
 
@@ -391,8 +395,8 @@ int main(int argc, char **argv) {
 		std::cerr << "Entering file dump" << std::endl;
 		#endif
 
-		if (conf.outputEnabled && ts % dumpEvery == 0) {
-			d.dumpBackbuffer(w, ts/dumpEvery);
+		if (unlikely(conf.outputEnabled)) {
+			d.dumpBackbuffer(w, ts);
 		}
 
 		#ifdef DEBUG

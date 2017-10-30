@@ -174,6 +174,16 @@ Config parse_cli(int argc, char **argv) {
 	return conf;
 }
 
+auto get_freq_sel(const TimeStepCount stepsCount) {
+	auto dumpEvery = stepsCount/DUMP_TEMPORAL_FREQUENCY;
+
+	std::function<bool(const Coord)> f = [dumpEvery](const Coord t) {
+		return t % dumpEvery == 0;
+	};
+
+	return f;
+}
+
 /**
  * It doesn't plot borders, so it always queries workspace from 0 to size-1
  */
@@ -184,10 +194,16 @@ public:
 	           const Coord n_partition,
 	           const NumType offset_x,
 	           const NumType offset_y,
-	           const NumType step)
-			: prefix(prefix), N(n_partition), offset_x(offset_x), offset_y(offset_y), step(step) {}
+	           const NumType step,
+	           std::function<bool(const TimeStepCount)> selector)
+			: prefix(prefix), N(n_partition), offset_x(offset_x), offset_y(offset_y), step(step), sel(selector),
+			  nextDumpId(0) {}
 
-	void dumpBackbuffer(W& w, const Coord t, const Coord keep_snapshots = DUMP_SPATIAL_FREQUENCY) {
+	void dumpBackbuffer(W& w, const TimeStepCount it_time, const Coord keep_snapshots = DUMP_SPATIAL_FREQUENCY) {
+
+		if(!sel(it_time)) {
+			return;
+		}
 
 		auto edgeLen  = w.getInnerLength();
 		auto step = edgeLen/keep_snapshots;
@@ -206,7 +222,7 @@ public:
 		}
 
 		filename.str("");
-		filename << prefix << "_" << t;
+		filename << prefix << "_" << nextDumpId;
 		auto fname = filename.str();
 
 		std::ofstream file;
@@ -221,7 +237,7 @@ public:
 			loop(edgeLen, step, [=, &w, &file](const Coord j) {
 				auto x = vr_x(i);
 				auto y = vr_y(j);
-				file << x << " " << y << " " << t << " " << w.elb(i,j) << std::endl;
+				file << x << " " << y << " " << it_time << " " << w.elb(i,j) << std::endl;
 			});
 
 			file << std::endl;
@@ -233,12 +249,17 @@ public:
 		#endif
 
 		file.close();
+
+		nextDumpId++;
 	}
 
 private:
 	const std::string prefix;
 	const Coord N;
 	std::ostringstream filename;
+
+	std::function<bool(TimeStepCount)> sel;
+	size_t nextDumpId;
 
 	const NumType offset_x;
 	const NumType offset_y;
@@ -335,5 +356,8 @@ NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, co
 	return val;
 }
 
+
+#define likely(x)   __builtin_expect((x), 1)
+#define unlikely(x) __builtin_expect((x), 0)
 
 #endif //LAB1_SHARED_H
