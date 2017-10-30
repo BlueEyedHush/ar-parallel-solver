@@ -6,11 +6,6 @@
 #include <cstring>
 #include "shared.h"
 
-/**
- * ToDo
- * - log prefixing not needed!
- */
-
 const int N_INVALID = -1;
 
 enum Neighbour {
@@ -149,11 +144,14 @@ private:
 
 class Workspace {
 public:
-	Workspace(const Coord innerSize, const NumType borderCond, ClusterManager& cm, Comms& comm)
-			: innerLength(innerSize), actualSize(innerSize*innerSize), cm(cm), borderCond(borderCond), comm(comm)
+	Workspace(const Coord innerSize, const Coord borderWidth, ClusterManager& cm, Comms& comm)
+			: innerSize(innerSize), cm(cm), comm(comm), borderWidth(borderWidth)
 	{
+		outerSize = innerSize+2*borderWidth;
+		memorySize = outerSize*outerSize;
+
 		neigh = cm.getNeighbours();
-		fillBuffers();
+		initialize_buffers();
 	}
 
 	~Workspace() {
@@ -161,62 +159,14 @@ public:
 	}
 
 	void set_elf(const Coord x, const Coord y, const NumType value) {
-		// copying to send buffers occurs during comms phase
-		front[x*innerLength+y] = value;
+		*elAddress(x, y, front) = value;
 	}
 
 	NumType elb(const Coord x, const Coord y) {
-		if(x == -1) {
-			if(y == -1) {
-				// conrner - invalid query, we never ask about it
-				throw std::runtime_error("corner access!");
-			} else if (y == innerLength) {
-				// corner - invalid query
-				throw std::runtime_error("corner access!");
-			} else {
-				// left outer border
-				if(neigh[LEFT] != N_INVALID) {
-					return outerEdge[LEFT][y];
-				} else {
-					return borderCond;
-				}
-			}
-		} else if (x == innerLength) {
-			if(y == -1) {
-				// conrner - invalid query, we never ask about it
-				throw std::runtime_error("corner access!");
-			} else if (y == innerLength) {
-				// corner - invalid query
-				throw std::runtime_error("corner access!");
-			} else {
-				// right outer border
-				if(neigh[RIGHT] != N_INVALID) {
-					return outerEdge[RIGHT][y];
-				} else {
-					return borderCond;
-				}
-			}
-		} else {
-			if(y == -1) {
-				if(neigh[BOTTOM] != N_INVALID) {
-					return outerEdge[BOTTOM][x];
-				} else {
-					return borderCond;
-				}
-			} else if (y == innerLength) {
-				if(neigh[TOP] != N_INVALID) {
-					return outerEdge[TOP][x];
-				} else {
-					return borderCond;
-				}
-			} else {
-				// coords within main area
-				return back[x*innerLength+y];
-			}
-		}
+		return *elAddress(x,y,back);
 	}
 
-	Coord getInnerLength() {return innerLength;}
+	Coord getInnerLength() {return innerSize;}
 
 	void swap(bool comms = true) {
 		if(comms) {
@@ -230,6 +180,8 @@ public:
 				}
 			}
 			comm.wait();
+
+			copy_outer_buffer_to(front);
 		}
 
 		swapBuffers();
@@ -240,10 +192,11 @@ private:
 	Comms& comm;
 	int* neigh;
 
-	const Coord innerLength;
-	const Coord actualSize;
+	const Coord innerSize;
+	Coord outerSize;
+	Coord memorySize;
 
-	const NumType borderCond;
+	const Coord borderWidth;
 
 	/* horizontal could be stored with main buffer, but for convenience both horizontals and
 	 * verticals are allocated separatelly (and writes mirrored) */
@@ -253,22 +206,21 @@ private:
 	NumType *front;
 	NumType *back;
 
-	void fillBuffers() {
-		front = new NumType[actualSize];
-		back = new NumType[actualSize];
+	void initialize_buffers() {
+		// @todo: need to zero-out front & back buffers
+		front = new NumType[memorySize]();
+		back = new NumType[memorySize]();
 
+		/* create inner buffer (as comm buffers) for  */
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				innerEdge[i] = new NumType[innerLength];
-				outerEdge[i] = new NumType[innerLength];
+				innerEdge[i] = new NumType[innerSize];
+				outerEdge[i] = new NumType[innerSize];
 			} else {
 				innerEdge[i] = nullptr;
 				outerEdge[i] = nullptr;
 			}
 		}
-
-		// flipping buffers requires to flip poitners to inner/outer ones (if part is shared -> don't share?)
-		// outer buffers are only associated with back buffer, but inner are mainly associated with both
 	}
 
 	void freeBuffers() {
@@ -284,7 +236,7 @@ private:
 	}
 
 	NumType* elAddress(const Coord x, const Coord y, NumType* base) {
-		return base + innerLength*x + y;
+		return base + innerSize*(borderWidth + x) + (borderWidth + y);
 	}
 
 	void swapBuffers() {
@@ -294,17 +246,33 @@ private:
 	}
 
 	void copyInnerEdgesToBuffers() {
-		#define LOOP(EDGE, X, Y, BUFF) \
+		#define LOOP(EDGE, X, Y) \
 		if(neigh[EDGE] != N_INVALID) { \
-			for(Coord i = 0; i < innerLength; i++) { \
-				innerEdge[EDGE][i] = *elAddress(X,Y,BUFF); \
+			for(Coord i = 0; i < innerSize; i++) { \
+				innerEdge[EDGE][i] = *elAddress(X,Y,front); \
 			} \
 		}
 
-		LOOP(TOP, i, innerLength-1, front)
-		LOOP(BOTTOM, i, 0, front)
-		LOOP(LEFT, 0, i, front)
-		LOOP(RIGHT, innerLength-1, i, front)
+		LOOP(TOP, i, innerSize-1)
+		LOOP(BOTTOM, i, 0)
+		LOOP(LEFT, 0, i)
+		LOOP(RIGHT, innerSize-1, i)
+
+		#undef LOOP
+	}
+
+	void copy_outer_buffer_to(NumType *target) {
+		#define LOOP(EDGE, X, Y) \
+		if(neigh[EDGE] != N_INVALID) { \
+			for(Coord i = 0; i < innerSize; i++) { \
+				*elAddress(X,Y,target) = outerEdge[EDGE][i]; \
+			} \
+		}
+
+		LOOP(TOP, i, innerSize)
+		LOOP(BOTTOM, i, -1)
+		LOOP(LEFT, -1, i)
+		LOOP(RIGHT, innerSize, i)
 
 		#undef LOOP
 	}
@@ -326,7 +294,7 @@ int main(int argc, char **argv) {
 	auto h = cm.getPartitioner().get_h();
 
 	Comms comm(n_slice);
-	Workspace w(n_slice, 0.0, cm, comm);
+	Workspace w(n_slice, 1, cm, comm);
 
 	FileDumper<Workspace> d(filenameGenerator(cm.getNodeId()), n_slice, x_offset, y_offset, h);
 	const TimeStepCount dumpEvery = conf.timeSteps/DUMP_TEMPORAL_FREQUENCY;
