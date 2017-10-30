@@ -20,7 +20,7 @@ for i in range(0, 100):
 for i, c in zip(range(0, len(concated)), concated):
     dses = []
 
-    dx = concated[0].sort_values([0,1,2,3])
+    dx = c.sort_values([0,1,2,3])
     for key in dx[0].unique():
         dw = dx[dx[0] == key]
         dses.append(dw)
