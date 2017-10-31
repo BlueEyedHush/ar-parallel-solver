@@ -14,6 +14,7 @@
 #include <sstream>
 #include <functional>
 #include <fstream>
+#include "NonCopyable.h"
 
 // #define DEBUG
 
@@ -68,7 +69,7 @@ const TimeStepCount DUMP_TEMPORAL_FREQUENCY = 100;
  * if we have 4 points in the middle, we should divide by 5 (6 points == 5 intervals)!!!
  *
  */
-class Partitioner {
+class Partitioner : private NonCopyable {
 	/* Responsibilities
 	 * - check for partitioning correctness
 	 * - get index and numerical offsets
@@ -207,7 +208,7 @@ auto sel_first_k_policy(TimeStepCount k) {
  * It doesn't plot borders, so it always queries workspace from 0 to size-1
  */
 template <typename W>
-class FileDumper {
+class FileDumper : private NonCopyable {
 public:
 	FileDumper(const std::string prefix,
 	           const Coord n_partition,
@@ -312,7 +313,7 @@ private:
 };
 
 
-class Timer {
+class Timer : private NonCopyable {
 public:
 	Timer() {
 		resetTm(tm);

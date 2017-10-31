@@ -15,7 +15,7 @@ enum Neighbour {
 	BOTTOM = 3,
 };
 
-class ClusterManager {
+class ClusterManager : private NonCopyable {
 public:
 	ClusterManager(const Coord N) : bitBucket(0) {
 		MPI_Init(nullptr, nullptr);
@@ -131,11 +131,16 @@ private:
  *
  */
 
-class Comms {
+class Comms : private NonCopyable {
 public:
 	Comms(const Coord innerLength) : innerLength(innerLength) {
-		reset_rqb(send_rqb);
-		reset_rqb(recv_rqb);
+		reset_rqb(send_rqb, false);
+		reset_rqb(recv_rqb, false);
+	}
+
+	~Comms() {
+		// cancel outstanding receives
+		reset_rqb(recv_rqb, true);
 	}
 
 	void wait_for_send() {
@@ -175,9 +180,21 @@ private:
 	RqBuffer send_rqb;
 	RqBuffer recv_rqb;
 
-	void reset_rqb(RqBuffer& b) {
+	void reset_rqb(RqBuffer& b, bool pendingWarn) {
 		for(int i = 0; i < RQ_COUNT; i++) {
-			b.first[i] = MPI_REQUEST_NULL;
+			if(b.first[i] != MPI_REQUEST_NULL) {
+				/* commenting out because caused error:
+				 * Fatal error in PMPI_Cancel: Invalid MPI_Request, error stack:
+				 * PMPI_Cancel(201): MPI_Cancel(request=0x7ffc407347c8) failed
+				 * PMPI_Cancel(177): Null Request pointer
+				 */
+				// MPI_Cancel(b.first + i);
+				b.first[i] = MPI_REQUEST_NULL;
+
+				if(pendingWarn) {
+					std::cerr << "WARN: pending request left in the queue, cancelling it!" << std::endl;
+				}
+			}
 		}
 		b.second = 0;
 	}
@@ -191,7 +208,7 @@ private:
 		}
 
 		//DL( "finished waiting for rqb!" )
-		reset_rqb(b);
+		reset_rqb(b, true);
 		//DL( "finished resettng rqb" );
 	}
 };
@@ -235,7 +252,7 @@ struct AreaCoords {
 /**
  * Return inclusive ranges !!!
  */
-class WorkspaceMetainfo {
+class WorkspaceMetainfo : private NonCopyable {
 public:
 	WorkspaceMetainfo(const Coord innerSize, const Coord boundaryWidth) {
 		precalculate(innerSize, boundaryWidth);
@@ -323,7 +340,7 @@ void iterate_over_area(AreaCoords area, std::function<void(const Coord, const Co
 	}
 }
 
-class Workspace {
+class Workspace : private NonCopyable {
 public:
 	Workspace(const Coord innerSize, const Coord borderWidth, ClusterManager& cm, Comms& comm)
 			: innerSize(innerSize), cm(cm), comm(comm), borderWidth(borderWidth)
