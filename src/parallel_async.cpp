@@ -44,13 +44,11 @@ public:
 	MPI_Comm getComm() { return comm; }
 
 	std::ostream& err_log() {
-		std::cerr << "[" << nodeId << "] ";
 		return std::cerr;
 	}
 
 	std::ostream& master_err_log() {
 		if(nodeId == 0) {
-			std::cerr << "[" << nodeId << "] ";
 			return std::cerr;
 		} else {
 			return bitBucket;
@@ -482,6 +480,8 @@ std::string filenameGenerator(int nodeId) {
 
 const Coord BOUNDARY_WIDTH = 1;
 
+#define DEBUG
+
 int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
 
@@ -513,28 +513,38 @@ int main(int argc, char **argv) {
 	auto wi_area = wi.innies_space_area();
 	auto ws_area = wi.shared_areas();
 
+	#ifdef DEBUG
+	std::cerr << "filling boundary condition" << std::endl;
+	#endif
+
 	iterate_over_area(ww_area, [&w, x_offset, y_offset, h](const Coord x_idx, const Coord y_idx) {
 		auto x = x_offset + x_idx*h;
 		auto y = y_offset + y_idx*h;
 		auto val = f(x,y);
 		w.set_elf(x_idx,y_idx, val);
 
-		#ifdef DEBUG
+		/*
 		std::cerr << "[" << x_idx << "," << y_idx <<"] "
 			          << "(" << x << "," << y << ") -> "
 			          << val << std::endl;
-		#endif
+        */
 	});
 
+	#ifdef DEBUG
+	std::cerr << "calculated boundary condition, initial communication" << std::endl;
+	#endif
+
 	/* send our part of initial condition to neighbours */
-	w.swap();
 	w.send_in_boundary();
 	w.start_wait_for_new_out_border();
+	w.swap();
+
+	#ifdef DEBUG
+	std::cerr << "initial communication done" << std::endl;
+	#endif
 
 	auto eq_f = [&w](const Coord x_idx, const Coord y_idx) {
-		#ifdef DEBUG
-		std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
-		#endif
+		// std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
 
 		auto eq_val = equation(
 				w.elb(x_idx - 1, y_idx),
