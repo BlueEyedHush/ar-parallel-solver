@@ -136,44 +136,58 @@ private:
 class Comms {
 public:
 	Comms(const Coord innerLength) : innerLength(innerLength) {
-		reset();
+		reset_rqb(send_rqb);
+		reset_rqb(recv_rqb);
 	}
 
-	void exchange(int targetId, NumType* sendBuffer, NumType* receiveBuffer) {
-		MPI_Isend(sendBuffer, innerLength, NUM_MPI_DT, targetId, 1, MPI_COMM_WORLD, rq + nextId);
-		MPI_Irecv(receiveBuffer, innerLength, NUM_MPI_DT, targetId, MPI_ANY_TAG, MPI_COMM_WORLD, rq + nextId + 1);
-
-		nextId += 2;
+	void wait_for_send() {
+		wait_for_rqb(send_rqb);
 	}
 
-	void wait() {
-		#ifdef DEBUG
-		std::cerr << "NextId: " << nextId << std::endl;
-		#endif
-		for(int i = 0; i < nextId; i++) {
-			int finished;
-			MPI_Waitany(nextId, rq, &finished, MPI_STATUSES_IGNORE);
-			#ifdef DEBUG
-			std::cerr << "Finished " << finished << ". Already done " << i+1 << std::endl;
-			#endif
-		}
-		#ifdef DEBUG
-		std::cerr << "Wait finished" << std::endl;
-		#endif
+	void wait_for_receives() {
+		wait_for_rqb(recv_rqb);
 	}
 
-	void reset() {
-		for(int i = 0; i < RQ_COUNT; i++) {
-			rq[i] = MPI_REQUEST_NULL;
-		}
-		nextId = 0;
+	#define SCHEDULE_OP(OP, RQB) \
+		auto idx = RQB.second; \
+		auto* rq = RQB.first + idx; \
+		OP(buffer, innerLength, NUM_MPI_DT, nodeId, 1, MPI_COMM_WORLD, rq); \
+		RQB.second++;
+	
+	void schedule_send(int nodeId, NumType* buffer) {
+		SCHEDULE_OP(MPI_Isend, send_rqb)
 	}
+
+	void schedule_recv(int nodeId, NumType* buffer) {
+		SCHEDULE_OP(MPI_Irecv, send_rqb)
+	}
+
+	#undef SCHEDULE_OP
 
 private:
-	const static int RQ_COUNT = 8;
+	const static int RQ_COUNT = 4;
+	using RqBuffer = std::pair<MPI_Request[RQ_COUNT], int>; 
+	
 	const Coord innerLength;
-	MPI_Request rq[RQ_COUNT];
-	int nextId;
+	
+	RqBuffer send_rqb;
+	RqBuffer recv_rqb;
+
+	void reset_rqb(RqBuffer& b) {
+		for(int i = 0; i < RQ_COUNT; i++) {
+			b.first[i] = MPI_REQUEST_NULL;
+		}
+		b.second = 0;
+	}
+	
+	void wait_for_rqb(RqBuffer& b) {
+		for(int i = 0; i < b.second; i++) {
+			int finished;
+			MPI_Waitany(b.second, b.first, &finished, MPI_STATUSES_IGNORE);
+		}
+		
+		reset_rqb(b);
+	}
 };
 
 
@@ -246,37 +260,33 @@ public:
 	 */
 
 	void ensure_out_boundary_arrived() {
-
+		comm.wait_for_receives();
+		copy_outer_buffer_to(back);
 	}
 
 	void ensure_in_boundary_sent() {
-
+		comm.wait_for_send();
 	}
 
 	void send_in_boundary() {
+		copy_from_x_to_inner_buffer(front);
 
+		for(int i = 0; i < 4; i++) {
+			if(neigh[i] != N_INVALID) {
+				comm.schedule_send(i, innerEdge[i]);
+			}
+		}
 	}
 
 	void start_wait_for_new_out_border() {
-
+		for(int i = 0; i < 4; i++) {
+			if(neigh[i] != N_INVALID) {
+				comm.schedule_recv(i, outerEdge[i]);
+			}
+		}
 	}
 
-	void swap(bool comms = true) {
-		if(comms) {
-			copyInnerEdgesToBuffers();
-
-			comm.reset();
-			for(int i = 0; i < 4; i++) {
-				auto iThNeigh = neigh[i];
-				if(iThNeigh != N_INVALID) {
-					comm.exchange(iThNeigh, innerEdge[i], outerEdge[i]);
-				}
-			}
-			comm.wait();
-
-			copy_outer_buffer_to(front);
-		}
-
+	void swap() {
 		swapBuffers();
 	}
 
@@ -342,11 +352,11 @@ private:
 		back = tmp;
 	}
 
-	void copyInnerEdgesToBuffers() {
+	void copy_from_x_to_inner_buffer(NumType *x) {
 		#define LOOP(EDGE, X, Y) \
 		if(neigh[EDGE] != N_INVALID) { \
 			for(Coord i = 0; i < innerSize; i++) { \
-				innerEdge[EDGE][i] = *elAddress(X,Y,front); \
+				innerEdge[EDGE][i] = *elAddress(X,Y,x); \
 			} \
 		}
 
@@ -427,7 +437,10 @@ int main(int argc, char **argv) {
 		#endif
 	});
 
+	/* send our part of initial condition to neighbours */
 	w.swap();
+	w.send_in_boundary();
+	w.start_wait_for_new_out_border();
 
 	auto eq_f = [&w](const Coord x_idx, const Coord y_idx) {
 		#ifdef DEBUG
