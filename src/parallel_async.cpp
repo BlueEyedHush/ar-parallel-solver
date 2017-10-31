@@ -192,40 +192,129 @@ private:
 
 
 struct CSet  {
-	CSet(const Coord x, const Coord y) : x(x), y(y) {}
+	CSet(const Coord x = 0, const Coord y = 0) : x(x), y(y) {}
 
-	const Coord x;
-	const Coord y;
+	Coord x;
+	Coord y;
+
+	bool operator==(const CSet &o) const {
+		return x == o.x && y == o.y;
+	}
+
+	bool operator!=(const CSet &o) const {
+		return !operator==(o);
+	}
+
+	const std::string toStr() {
+		std::ostringstream oss;
+		oss << "(" << x << "," << y << ")";
+		return oss.str();
+	}
 };
 
 struct AreaCoords {
+	AreaCoords() {}
 	AreaCoords(const CSet bottomLeft, const CSet upperRight) : bottomLeft(bottomLeft), upperRight(upperRight) {}
 
-	const CSet bottomLeft;
-	const CSet upperRight;
+	CSet bottomLeft;
+	CSet upperRight;
+
+	const std::string toStr() {
+		std::ostringstream oss;
+		oss << "[ " << bottomLeft.toStr() << " | " << upperRight.toStr() << "]";
+		return oss.str();
+	}
 };
 
+/**
+ * Return inclusive ranges !!!
+ */
 class WorkspaceMetainfo {
 public:
 	WorkspaceMetainfo(const Coord innerSize, const Coord boundaryWidth) {
-
+		precalculate(innerSize, boundaryWidth);
 	}
 
-	AreaCoords working_workspace_area() {
+	const AreaCoords& working_workspace_area() const { return wwa; }
 
-	}
+	const AreaCoords& innies_space_area() const { return isa; };
 
-	AreaCoords innies_space_area() {
+	/**
+	 * That's how shared areas are divided:
+	 *  ___________
+	 * | |_______| |
+	 * | |       | |
+	 * | |       | |
+	 * | |_______| |
+	 * |_|_______|_|
+	 */
+	const std::array<AreaCoords, 4>& shared_areas() const { return sha; }
+	
+private:
+	AreaCoords wwa;
+	AreaCoords isa;
+	std::array<AreaCoords, 4> sha;
+	
+	void precalculate(const Coord innerSize, const Coord boundaryWidth) {
+		const auto lid = innerSize-1;
+		
+		wwa.bottomLeft.x = 0;
+		wwa.bottomLeft.y = 0;
+		wwa.upperRight.x = lid;
+		wwa.upperRight.y = lid;
 
-	};
-
-	std::array<AreaCoords, 4> shared_areas() {
-
+		isa.bottomLeft.x = boundaryWidth;
+		isa.bottomLeft.y = boundaryWidth;
+		isa.upperRight.x = lid - boundaryWidth;
+		isa.upperRight.y = lid - boundaryWidth;
+		
+		sha = {
+			AreaCoords(CSet(0, 0), CSet(boundaryWidth-1, lid)), // left
+			AreaCoords(CSet(innerSize - boundaryWidth, 0), CSet(lid, lid)), // right
+			AreaCoords(CSet(boundaryWidth, innerSize-boundaryWidth), CSet(lid-boundaryWidth, lid)), // top
+			AreaCoords(CSet(boundaryWidth, 0), CSet(lid-boundaryWidth, boundaryWidth-1)), // bottom
+		};
 	}
 };
 
-void iterate_over_area(AreaCoords area, std::function<void(const Coord x, const Coord y)> f) {
+void test_wmi() {
+	WorkspaceMetainfo wmi(9, 2);
 
+	auto work_area = wmi.working_workspace_area();
+	auto innie = wmi.innies_space_area();
+	auto in_bound = wmi.shared_areas();
+
+	#define STR(X) std::cerr << X.toStr() << std::endl;
+
+	assert(work_area.bottomLeft == CSet(0,0));
+	assert(work_area.upperRight == CSet(8,8));
+
+
+	assert(innie.bottomLeft == CSet(2,2));
+	assert(innie.upperRight == CSet(6,6));
+
+	// left
+	assert(in_bound[0].bottomLeft == CSet(0,0));
+	assert(in_bound[0].upperRight == CSet(1,8));
+	// right
+	assert(in_bound[1].bottomLeft == CSet(7,0));
+	assert(in_bound[1].upperRight == CSet(8,8));
+	// top
+	assert(in_bound[2].bottomLeft == CSet(2,7));
+	assert(in_bound[2].upperRight == CSet(6,8));
+	// bottom
+	assert(in_bound[3].bottomLeft == CSet(2,0));
+	assert(in_bound[3].upperRight == CSet(6,1));
+
+	#undef STR
+}
+
+void iterate_over_area(AreaCoords area, std::function<void(const Coord, const Coord)> f) {
+	for(Coord x_idx = area.bottomLeft.x; x_idx <= area.upperRight.x; x_idx++) {
+		for(Coord y_idx = area.bottomLeft.y; y_idx <= area.upperRight.y; y_idx++) {
+			f(x_idx, y_idx);
+		}
+	}
 }
 
 class Workspace {
