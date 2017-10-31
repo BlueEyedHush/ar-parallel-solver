@@ -98,6 +98,41 @@ private:
 	}
 };
 
+/*
+ * Buffer exposal during async
+ *  I - start of innies calculation
+ *  O - start of outies calulations
+ *  s - swap, calculations finished for given iteration
+ *  out_r - recv, period of outer buffers exposal to the network
+ *  out_s - send, period of inner buffers exposal to the network
+ *
+ *  I        O    s  I       O  s
+ *  - out_r -|    |-- out_r -|
+ *  - out_s -|    |-- out_s -|
+ *
+ * receive (outer) - needed when calculating border values
+ *	* must be present when i-1 outies calculated
+ *	* can lie idle during subsequent outies calculation (assuming no memcpy)
+ * send (inner)
+ *	* can be sent only when values calculated (happens right after outer become available)
+ *	* can be exposed only until outies from next iteration need to be calculated
+ *
+ * Memcpy impact?
+ * Separate inner buffer: we don't have to wait with i+1 outies calculation until buffers are free (otherwise
+ * we could overwrite data being sent)
+ * Separate outer buffer: data required to carry out computations, but we can have a couple of spares with
+ * outstanding receive request attached
+ *
+ * Single memcpied send buffer:
+ * Allow to extend buffer exposure into outies calculation phase
+ *
+ *  I        O    s  I       O   s
+ *  - out_r -|    |-- out_r -|
+ *  --out_m--|xxxx| memcpy-> out_s1
+ *  - out_s1 -----| |------------|
+ *
+ */
+
 class Comms {
 public:
 	Comms(const Coord innerLength) : innerLength(innerLength) {
