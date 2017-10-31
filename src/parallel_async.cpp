@@ -480,8 +480,6 @@ std::string filenameGenerator(int nodeId) {
 
 const Coord BOUNDARY_WIDTH = 1;
 
-#define DEBUG
-
 int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
 
@@ -513,9 +511,7 @@ int main(int argc, char **argv) {
 	auto wi_area = wi.innies_space_area();
 	auto ws_area = wi.shared_areas();
 
-	#ifdef DEBUG
-	std::cerr << "filling boundary condition" << std::endl;
-	#endif
+	DL( "filling boundary condition" )
 
 	iterate_over_area(ww_area, [&w, x_offset, y_offset, h](const Coord x_idx, const Coord y_idx) {
 		auto x = x_offset + x_idx*h;
@@ -530,18 +526,14 @@ int main(int argc, char **argv) {
         */
 	});
 
-	#ifdef DEBUG
-	std::cerr << "calculated boundary condition, initial communication" << std::endl;
-	#endif
+	DL( "calculated boundary condition, initial communication" )
 
 	/* send our part of initial condition to neighbours */
 	w.send_in_boundary();
 	w.start_wait_for_new_out_border();
 	w.swap();
 
-	#ifdef DEBUG
-	std::cerr << "initial communication done" << std::endl;
-	#endif
+	DL( "initial communication done" )
 
 	auto eq_f = [&w](const Coord x_idx, const Coord y_idx) {
 		// std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
@@ -557,39 +549,34 @@ int main(int argc, char **argv) {
 	};
 
 	for(TimeStepCount ts = 0; ts < conf.timeSteps; ts++) {
-		#ifdef DEBUG
-		std::cerr << "Entering timestep loop, ts = " << ts << std::endl;
-		#endif
+		DL( "Entering timestep loop, ts = " << ts )
 
 		iterate_over_area(wi_area, eq_f);
+		DL( "Outies iterated, ts = " << ts )
 
 		w.ensure_out_boundary_arrived();
+		DL( "Out boundary arrived, ts = " << ts )
 		w.ensure_in_boundary_sent();
+		DL( "In boundary sent, ts = " << ts )
 
 		for(auto a: ws_area) {
 			iterate_over_area(a, eq_f);
 		}
 
+		DL( "Innies iterated, ts = " << ts )
+
 		w.send_in_boundary();
+		DL( "In boundary send scheduled, ts = " << ts )
 		w.start_wait_for_new_out_border();
 
-		#ifdef DEBUG
-		std::cerr << "Before swap, ts = " << ts << std::endl;
-		#endif
-
+		DL( "Before swap, ts = " << ts )
 		w.swap();
 
-		#ifdef DEBUG
-		std::cerr << "Entering file dump" << std::endl;
-		#endif
-
+		DL( "Entering file dump" )
 		if (unlikely(conf.outputEnabled)) {
 			d.dumpBackbuffer(w, ts);
 		}
-
-		#ifdef DEBUG
-		std::cerr << "After dump, ts = " << ts << std::endl;
-		#endif
+		DL( "After dump, ts = " << ts )
 	}
 
 	MPI_Barrier(cm.getComm());
@@ -600,9 +587,7 @@ int main(int argc, char **argv) {
 		std::cerr << ((double)duration)/1000000000 << " s" << std::endl;
 	}
 
-	#ifdef DEBUG
-	std::cerr << "Terminating" << std::endl;
-	#endif
+	DL( "Terminating" )
 
 	return 0;
 }

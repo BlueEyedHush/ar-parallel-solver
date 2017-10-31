@@ -15,7 +15,13 @@
 #include <functional>
 #include <fstream>
 
-// #define DEBUG
+#define DEBUG
+
+#ifdef DEBUG
+	#define DL(X) std::cerr << X << std::endl;
+#else
+	#define DL(X) (void)0;
+#endif
 
 using Coord = long long;
 using TimeStepCount = size_t;
@@ -242,9 +248,7 @@ public:
 		file.open(fname);
 		file.precision(NumPrecision);
 
-		#ifdef DEBUG
-		std::cerr << "dumping" << std::endl;
-		#endif
+		DL( "dumping" )
 
 		loop(edgeLen, step, [=, &w, &file](const Coord i) {
 			loop(edgeLen, step, [=, &w, &file](const Coord j) {
@@ -257,9 +261,7 @@ public:
 		});
 
 
-		#ifdef DEBUG
-		std::cerr << "dump finished" << std::endl;
-		#endif
+		DL( "dump finished" )
 
 		file.close();
 
@@ -363,9 +365,7 @@ NumType f(NumType x, NumType y) {
 
 NumType equation(const NumType v_i_j, const NumType vi_j, const NumType v_ij, const NumType vij) {
 	auto val = 0.25*(v_i_j + v_ij + vi_j + vij);
-	#ifdef DEBUG
-	std::cerr << "(" << v_i_j << "," << vi_j << "," << v_ij << "," << vij  << "," << val << ")" << std::endl;
-	#endif
+	// DL( "(" << v_i_j << "," << vi_j << "," << v_ij << "," << vij  << "," << val << ")" )
 	return val;
 }
 

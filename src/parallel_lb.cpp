@@ -147,19 +147,13 @@ public:
 	}
 
 	void wait() {
-		#ifdef DEBUG
-		std::cerr << "NextId: " << nextId << std::endl;
-		#endif
+		DL( "NextId: " << nextId )
 		for(int i = 0; i < nextId; i++) {
 			int finished;
 			MPI_Waitany(nextId, rq, &finished, MPI_STATUSES_IGNORE);
-			#ifdef DEBUG
-			std::cerr << "Finished " << finished << ". Already done " << i+1 << std::endl;
-			#endif
+			DL( "Finished " << finished << ". Already done " << i+1 )
 		}
-		#ifdef DEBUG
-		std::cerr << "Wait finished" << std::endl;
-		#endif
+		DL( "Wait finished" )
 	}
 
 	void reset() {
@@ -367,19 +361,13 @@ int main(int argc, char **argv) {
 	w.swap();
 
 	for(TimeStepCount ts = 0; ts < conf.timeSteps; ts++) {
-		#ifdef DEBUG
-		std::cerr << "Entering timestep loop, ts = " << ts << std::endl;
-		#endif
+		DL( "Entering timestep loop, ts = " << ts )
 
 		for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
-			#ifdef DEBUG
-			std::cerr << "Entering X loop, x = " << x_idx << std::endl;
-			#endif
+			DL( "Entering X loop, x = " << x_idx )
 
 			for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
-				#ifdef DEBUG
-				std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
-				#endif
+				DL( "Entering Y loop, x y " << y_idx )
 
 				auto eq_val = equation(
 						w.elb(x_idx - 1, y_idx),
@@ -392,23 +380,17 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		#ifdef DEBUG
-		std::cerr << "Before swap, ts = " << ts << std::endl;
-		#endif
+		DL( "Before swap, ts = " << ts )
 
 		w.swap();
 
-		#ifdef DEBUG
-		std::cerr << "Entering file dump" << std::endl;
-		#endif
+		DL( "Entering file dump" )
 
 		if (unlikely(conf.outputEnabled)) {
 			d.dumpBackbuffer(w, ts);
 		}
 
-		#ifdef DEBUG
-		std::cerr << "After dump, ts = " << ts << std::endl;
-		#endif
+		DL( "After dump, ts = " << ts )
 	}
 
 	MPI_Barrier(cm.getComm());
@@ -419,9 +401,7 @@ int main(int argc, char **argv) {
 		std::cerr << ((double)duration)/1000000000 << " s" << std::endl;
 	}
 
-	#ifdef DEBUG
-	std::cerr << "Terminating" << std::endl;
-	#endif
+	DL( "Terminating" )
 
 	return 0;
 }
