@@ -184,21 +184,35 @@ struct CSet  {
 	const Coord y;
 };
 
-using AreaCoords = std::pair<CSet, CSet>;
+struct AreaCoords {
+	AreaCoords(const CSet bottomLeft, const CSet upperRight) : bottomLeft(bottomLeft), upperRight(upperRight) {}
+
+	const CSet bottomLeft;
+	const CSet upperRight;
+};
 
 class WorkspaceMetainfo {
+public:
 	WorkspaceMetainfo(const Coord innerSize, const Coord boundaryWidth) {
 
 	}
 
-	AreaCoords innies_space_dimms() {
+	AreaCoords working_workspace_area() {
+
+	}
+
+	AreaCoords innies_space_area() {
 
 	};
 
-	std::array<AreaCoords, 4> shared_areas_dimms() {
+	std::array<AreaCoords, 4> shared_areas() {
 
 	}
 };
+
+void iterate_over_area(AreaCoords area, std::function<void(const Coord x, const Coord y)> f) {
+
+}
 
 class Workspace {
 public:
@@ -225,6 +239,11 @@ public:
 	}
 
 	Coord getInnerLength() {return innerSize;}
+
+	/*
+	 * All 4 functions are called before swap() is invoked!
+	 * 2 first before outie calculations, last two after them
+	 */
 
 	void ensure_out_boundary_arrived() {
 
@@ -362,6 +381,8 @@ std::string filenameGenerator(int nodeId) {
 	return oss.str();
 }
 
+const Coord BOUNDARY_WIDTH = 1;
+
 int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
 
@@ -374,7 +395,8 @@ int main(int argc, char **argv) {
 	auto h = cm.getPartitioner().get_h();
 
 	Comms comm(n_slice);
-	Workspace w(n_slice, 1, cm, comm);
+	Workspace w(n_slice, BOUNDARY_WIDTH, cm, comm);
+	WorkspaceMetainfo wi(n_slice, BOUNDARY_WIDTH);
 
 	FileDumper<Workspace> d(filenameGenerator(cm.getNodeId()),
 	                        n_slice,
@@ -388,48 +410,56 @@ int main(int argc, char **argv) {
 	MPI_Barrier(cm.getComm());
 	timer.start();
 
-	for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
-		for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
-			auto x = x_offset + x_idx*h;
-			auto y = y_offset + y_idx*h;
-			auto val = f(x,y);
-			w.set_elf(x_idx,y_idx, val);
+	auto ww_area = wi.working_workspace_area();
+	auto wi_area = wi.innies_space_area();
+	auto ws_area = wi.shared_areas();
 
-			#ifdef DEBUG
-			std::cerr << "[" << x_idx << "," << y_idx <<"] "
+	iterate_over_area(ww_area, [&w, x_offset, y_offset, h](const Coord x_idx, const Coord y_idx) {
+		auto x = x_offset + x_idx*h;
+		auto y = y_offset + y_idx*h;
+		auto val = f(x,y);
+		w.set_elf(x_idx,y_idx, val);
+
+		#ifdef DEBUG
+		std::cerr << "[" << x_idx << "," << y_idx <<"] "
 			          << "(" << x << "," << y << ") -> "
 			          << val << std::endl;
-			#endif
-		}
-	}
+		#endif
+	});
 
 	w.swap();
+
+	auto eq_f = [&w](const Coord x_idx, const Coord y_idx) {
+		#ifdef DEBUG
+		std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
+		#endif
+
+		auto eq_val = equation(
+				w.elb(x_idx - 1, y_idx),
+				w.elb(x_idx, y_idx - 1),
+				w.elb(x_idx + 1, y_idx),
+				w.elb(x_idx, y_idx + 1)
+		);
+
+		w.set_elf(x_idx, y_idx, eq_val);
+	};
 
 	for(TimeStepCount ts = 0; ts < conf.timeSteps; ts++) {
 		#ifdef DEBUG
 		std::cerr << "Entering timestep loop, ts = " << ts << std::endl;
 		#endif
 
-		for(Coord x_idx = 0; x_idx < n_slice; x_idx++) {
-			#ifdef DEBUG
-			std::cerr << "Entering X loop, x = " << x_idx << std::endl;
-			#endif
+		iterate_over_area(wi_area, eq_f);
 
-			for(Coord y_idx = 0; y_idx < n_slice; y_idx++) {
-				#ifdef DEBUG
-				std::cerr << "Entering Y loop, x y " << y_idx << std::endl;
-				#endif
+		w.ensure_out_boundary_arrived();
+		w.ensure_in_boundary_sent();
 
-				auto eq_val = equation(
-						w.elb(x_idx - 1, y_idx),
-						w.elb(x_idx, y_idx - 1),
-						w.elb(x_idx + 1, y_idx),
-						w.elb(x_idx, y_idx + 1)
-				);
-
-				w.set_elf(x_idx, y_idx, eq_val);
-			}
+		for(auto a: ws_area) {
+			iterate_over_area(a, eq_f);
 		}
+
+		w.send_in_boundary();
+		w.start_wait_for_new_out_border();
 
 		#ifdef DEBUG
 		std::cerr << "Before swap, ts = " << ts << std::endl;
