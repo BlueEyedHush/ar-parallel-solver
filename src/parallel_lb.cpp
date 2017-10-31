@@ -207,9 +207,13 @@ private:
 	NumType *back;
 
 	void initialize_buffers() {
-		// @todo: need to zero-out front & back buffers
-		front = new NumType[memorySize]();
-		back = new NumType[memorySize]();
+		front = new NumType[memorySize];
+		back = new NumType[memorySize];
+
+		for(Coord i = 0; i < memorySize; i++) {
+			front[i] = 0.0;
+			back[i] = 0.0;
+		}
 
 		/* create inner buffer (as comm buffers) for  */
 		for(int i = 0; i < 4; i++) {
@@ -236,7 +240,7 @@ private:
 	}
 
 	NumType* elAddress(const Coord x, const Coord y, NumType* base) {
-		return base + innerSize*(borderWidth + x) + (borderWidth + y);
+		return base + outerSize*(borderWidth + x) + (borderWidth + y);
 	}
 
 	void swapBuffers() {
@@ -303,7 +307,7 @@ int main(int argc, char **argv) {
 	                        x_offset,
 	                        y_offset,
 	                        h,
-	                        sel_first_k_policy(200));
+	                        get_freq_sel(conf.timeSteps));
 
 	Timer timer;
 
