@@ -153,11 +153,15 @@ public:
 		RQB.second++;
 	
 	void schedule_send(int nodeId, NumType* buffer) {
+		//DL( "schedule send to " << nodeId )
 		SCHEDULE_OP(MPI_Isend, send_rqb)
+		//DL( "rqb afterwards" << send_rqb.second )
 	}
 
 	void schedule_recv(int nodeId, NumType* buffer) {
-		SCHEDULE_OP(MPI_Irecv, send_rqb)
+		//DL( "schedule receive from " << nodeId )
+		SCHEDULE_OP(MPI_Irecv, recv_rqb)
+		//DL( "rqb afterwards" << recv_rqb.second )
 	}
 
 	#undef SCHEDULE_OP
@@ -179,12 +183,16 @@ private:
 	}
 	
 	void wait_for_rqb(RqBuffer& b) {
-		for(int i = 0; i < b.second; i++) {
-			int finished;
-			MPI_Waitany(b.second, b.first, &finished, MPI_STATUSES_IGNORE);
+		//DL( "waiting for rqb" )
+		for(int i = 0; i < b.second;  i++) {
+			//DL( "iteration: " << i )
+			int finished_idx;
+			MPI_Waitany(b.second, b.first, &finished_idx, MPI_STATUSES_IGNORE);
 		}
-		
+
+		//DL( "finished waiting for rqb!" )
 		reset_rqb(b);
+		//DL( "finished resettng rqb" );
 	}
 };
 
@@ -360,7 +368,7 @@ public:
 
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm.schedule_send(i, innerEdge[i]);
+				comm.schedule_send(neigh[i], innerEdge[i]);
 			}
 		}
 	}
@@ -368,7 +376,7 @@ public:
 	void start_wait_for_new_out_border() {
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm.schedule_recv(i, outerEdge[i]);
+				comm.schedule_recv(neigh[i], outerEdge[i]);
 			}
 		}
 	}
@@ -552,7 +560,7 @@ int main(int argc, char **argv) {
 		DL( "Entering timestep loop, ts = " << ts )
 
 		iterate_over_area(wi_area, eq_f);
-		DL( "Outies iterated, ts = " << ts )
+		DL( "Innies iterated, ts = " << ts )
 
 		w.ensure_out_boundary_arrived();
 		DL( "Out boundary arrived, ts = " << ts )
@@ -563,7 +571,7 @@ int main(int argc, char **argv) {
 			iterate_over_area(a, eq_f);
 		}
 
-		DL( "Innies iterated, ts = " << ts )
+		DL( "Outies iterated, ts = " << ts )
 
 		w.send_in_boundary();
 		DL( "In boundary send scheduled, ts = " << ts )
