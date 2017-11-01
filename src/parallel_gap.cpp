@@ -278,6 +278,7 @@ public:
 
 private:
 	struct comms_info {
+		comms_info() {}
 		comms_info(int nid, Coord offset, MPI_Datatype dt) : offset(offset), type(dt), node_id(nid) {}
 
 		Coord offset;
@@ -428,9 +429,14 @@ public:
 
 		neigh = cm.getNeighbours();
 		initialize_buffers();
+
+		comm_proxy = new NeighboursCommProxy(neigh, innerSize, borderWidth, [this](auto x, auto y) {
+			return this->get_offset(x,y);
+		});
 	}
 
 	~Workspace() {
+		delete comm_proxy;
 		freeBuffers();
 	}
 
@@ -451,8 +457,6 @@ public:
 
 	void ensure_out_boundary_arrived() {
 		comm.wait_for_receives();
-		// @todo no need for buffer cpy
-		copy_outer_buffer_to(back);
 	}
 
 	void ensure_in_boundary_sent() {
@@ -460,22 +464,17 @@ public:
 	}
 
 	void send_in_boundary() {
-		// @todo no buffer
-		copy_from_x_to_inner_buffer(front);
-
-		// @todo have to separate into vertical and horizontal send
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm.schedule_send(neigh[i], innerEdge[i]);
+				comm_proxy->schedule_send(comm, static_cast<Neighbour>(i), front, IN);
 			}
 		}
 	}
 
 	void start_wait_for_new_out_border() {
-		// @todo separate into v and h
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm.schedule_recv(neigh[i], outerEdge[i]);
+				comm_proxy->schedule_recv(comm, static_cast<Neighbour>(i), front, OUT);
 			}
 		}
 	}
@@ -488,6 +487,7 @@ private:
 	ClusterManager& cm;
 	Comms& comm;
 	int* neigh;
+	NeighboursCommProxy* comm_proxy;
 
 	const Coord innerSize;
 	Coord outerSize;
@@ -495,11 +495,6 @@ private:
 
 	const Coord borderWidth;
 
-	/* horizontal could be stored with main buffer, but for convenience both horizontals and
-	 * verticals are allocated separatelly (and writes mirrored) */
-	NumType* innerEdge[4];
-	/* all outer edges are allocated separatelly; their length is innerLength, not innerLength + 2 */
-	NumType* outerEdge[4];
 	NumType *front;
 	NumType *back;
 
@@ -511,34 +506,17 @@ private:
 			front[i] = 0.0;
 			back[i] = 0.0;
 		}
-
-		// @todo
-		/* create inner buffer (as comm buffers) for  */
-		for(int i = 0; i < 4; i++) {
-			if(neigh[i] != N_INVALID) {
-				innerEdge[i] = new NumType[innerSize];
-				outerEdge[i] = new NumType[innerSize];
-			} else {
-				innerEdge[i] = nullptr;
-				outerEdge[i] = nullptr;
-			}
-		}
 	}
 
 	void freeBuffers() {
 		delete[] front;
 		delete[] back;
-
-		// @todo
-		for(int i = 0; i < 4; i++) {
-			if(innerEdge != nullptr) {
-				delete[] innerEdge[i];
-				delete[] outerEdge[i];
-			}
-		}
 	}
 
-	
+	NumType* elAddress(const Coord x, const Coord y, NumType* base) {
+		return base + get_offset(x,y);
+	}
+
 	/*
 	 * Because MPI reads (and writes) directy from front/back, memory layout is no longer arbitrary
 	 * I decided to store coordinate system in horizontally mirrored manner:
@@ -550,53 +528,19 @@ private:
 	 *    |
 	 *    |
 	 *    |
-	 * 
+	 *
 	 *  x corresponds to j, y corresponds to i
 	 *  stored in row major manner ( adr = i*width + j = y*width + x )
-	 * 
+	 *
 	 */
-	NumType* elAddress(const Coord x, const Coord y, NumType* base) {
-		return base + outerSize*(borderWidth + y) + (borderWidth + x);
+	Coord get_offset(const Coord x, const Coord y) {
+		return outerSize*(borderWidth + y) + (borderWidth + x);
 	}
 
 	void swapBuffers() {
 		NumType* tmp = front;
 		front = back;
 		back = tmp;
-	}
-
-	// @todo
-	void copy_from_x_to_inner_buffer(NumType *x) {
-		#define LOOP(EDGE, X, Y) \
-		if(neigh[EDGE] != N_INVALID) { \
-			for(Coord i = 0; i < innerSize; i++) { \
-				innerEdge[EDGE][i] = *elAddress(X,Y,x); \
-			} \
-		}
-
-		LOOP(TOP, i, innerSize-1)
-		LOOP(BOTTOM, i, 0)
-		LOOP(LEFT, 0, i)
-		LOOP(RIGHT, innerSize-1, i)
-
-		#undef LOOP
-	}
-
-	// @todo
-	void copy_outer_buffer_to(NumType *target) {
-		#define LOOP(EDGE, X, Y) \
-		if(neigh[EDGE] != N_INVALID) { \
-			for(Coord i = 0; i < innerSize; i++) { \
-				*elAddress(X,Y,target) = outerEdge[EDGE][i]; \
-			} \
-		}
-
-		LOOP(TOP, i, innerSize)
-		LOOP(BOTTOM, i, -1)
-		LOOP(LEFT, -1, i)
-		LOOP(RIGHT, innerSize, i)
-
-		#undef LOOP
 	}
 };
 
@@ -619,7 +563,7 @@ int main(int argc, char **argv) {
 	std::tie(x_offset, y_offset) = cm.getOffsets();
 	auto h = cm.getPartitioner().get_h();
 
-	Comms comm(n_slice);
+	Comms comm;
 	Workspace w(n_slice, BOUNDARY_WIDTH, cm, comm);
 	WorkspaceMetainfo wi(n_slice, BOUNDARY_WIDTH);
 
