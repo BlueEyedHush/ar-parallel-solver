@@ -133,7 +133,7 @@ private:
 
 class Comms : private NonCopyable {
 public:
-	Comms(const Coord innerLength) : innerLength(innerLength) {
+	Comms() {
 		reset_rqb(send_rqb, false);
 		reset_rqb(recv_rqb, false);
 	}
@@ -151,31 +151,29 @@ public:
 		wait_for_rqb(recv_rqb);
 	}
 
-	#define SCHEDULE_OP(OP, RQB) \
+	#define SCHEDULE_H_OP(OP, RQB) \
 		auto idx = RQB.second; \
 		auto* rq = RQB.first + idx; \
-		OP(buffer, innerLength, NUM_MPI_DT, nodeId, 1, MPI_COMM_WORLD, rq); \
+		OP(buffer, size, NUM_MPI_DT, nodeId, 1, MPI_COMM_WORLD, rq); \
 		RQB.second++;
-	
-	void schedule_send(int nodeId, NumType* buffer) {
+
+	void schedule_h_send(int nodeId, NumType* buffer, Coord size) {
 		//DL( "schedule send to " << nodeId )
-		SCHEDULE_OP(MPI_Isend, send_rqb)
+		SCHEDULE_H_OP(MPI_Isend, send_rqb)
 		//DL( "rqb afterwards" << send_rqb.second )
 	}
 
-	void schedule_recv(int nodeId, NumType* buffer) {
+	void schedule_h_recv(int nodeId, NumType* buffer, Coord size) {
 		//DL( "schedule receive from " << nodeId )
-		SCHEDULE_OP(MPI_Irecv, recv_rqb)
+		SCHEDULE_H_OP(MPI_Irecv, recv_rqb)
 		//DL( "rqb afterwards" << recv_rqb.second )
 	}
 
-	#undef SCHEDULE_OP
+	#undef SCHEDULE_H_OP
 
 private:
 	const static int RQ_COUNT = 4;
 	using RqBuffer = std::pair<MPI_Request[RQ_COUNT], int>; 
-	
-	const Coord innerLength;
 	
 	RqBuffer send_rqb;
 	RqBuffer recv_rqb;
@@ -211,6 +209,97 @@ private:
 		reset_rqb(b, true);
 		//DL( "finished resettng rqb" );
 	}
+};
+
+class NeighboursCommProxy {
+public:
+	// Partitioner as parameter? or ClusterManager?
+	NeighboursCommProxy(int* neigh_mapping, const Coord innerLength, const Coord gap_width)
+			: innerLength(innerLength), gap_width(gap_width), neigh_mapping(neigh_mapping)
+	{
+		create_types_for_vertical_transfers(innerLength, gap_width);
+		MPI_Type_commit(&vert_in_dt);
+		MPI_Type_commit(&vert_out_dt);
+
+		// inner type needs to skip first blank, then innies and finally
+
+		const auto outer_size = innerLength + 2*gap_width;
+
+		if(neigh_mapping[LEFT] != N_INVALID) {
+			in[LEFT] = comms_info(neigh_mapping[LEFT], )
+		}
+
+		for(auto n: {LEFT, RIGHT}) {
+			if(neigh_mapping[n] != N_INVALID) {
+				in[n]
+			}
+		}
+
+		for(auto n: {TOP, BOTTOM}) {
+			if(neigh_mapping[n] != N_INVALID) {
+
+			}
+		}
+	}
+
+	~NeighboursCommProxy() {
+		MPI_Type_free(&vert_out_dt);
+		MPI_Type_free(&vert_in_dt);
+	}
+
+	void schedule_send(Comms& c, Neighbour n, NumType* buffer) {
+		// send always in, receive always out
+		if(n == LEFT || n == RI)
+	}
+
+	void schedule_recv(Comms& c, Neighbour n, NumType* buffer) {
+
+	}
+
+private:
+	struct comms_info {
+		comms_info() : valid(false), offset(0), type(MPI_DATATYPE_NULL), node_id(-1) {}
+		comms_info(int nid, Coord offset, MPI_Datatype dt) : valid(true), offset(offset), type(dt), node_id(nid) {}
+
+		bool valid;
+		Coord offset;
+		MPI_Datatype type;
+		int node_id;
+	};
+
+	comms_info in[4];
+	comms_info out[4];
+
+	const Coord innerLength;
+	const Coord gap_width;
+
+	MPI_Datatype vert_in_dt;
+	MPI_Datatype vert_out_dt;
+
+	/*
+	 * Vertical borders (y - external, x - internal)
+	 *  ___________
+	 * |___________|
+	 * |y|x|___|x|y|
+	 * |y|x|___|x|y|
+	 * |y|x|___|x|y|
+	 * |___________|
+	 *
+	 * Horizontal borders
+	 *  ___________
+	 * |__yyyyyyy__|
+	 * | |xxxxxxx| |
+	 * | | |___| | |
+	 * | |xxxxxxx| |
+	 * |__yyyyyyy__|
+	 *
+	 * In case of internal borders we have overlap, with external we don't
+	 */
+
+	void create_types_for_vertical_transfers(const Coord inner_size, const Coord gap_width) {
+		MPI_Type_vector(1, gap_width, inner_size, NUM_MPI_DT, &vert_in_dt);
+		MPI_Type_vector(1, gap_width, inner_size + 2*gap_width, NUM_MPI_DT, &vert_out_dt);
+	};
 };
 
 
@@ -373,6 +462,7 @@ public:
 
 	void ensure_out_boundary_arrived() {
 		comm.wait_for_receives();
+		// @todo no need for buffer cpy
 		copy_outer_buffer_to(back);
 	}
 
@@ -381,8 +471,10 @@ public:
 	}
 
 	void send_in_boundary() {
+		// @todo no buffer
 		copy_from_x_to_inner_buffer(front);
 
+		// @todo have to separate into vertical and horizontal send
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
 				comm.schedule_send(neigh[i], innerEdge[i]);
@@ -391,6 +483,7 @@ public:
 	}
 
 	void start_wait_for_new_out_border() {
+		// @todo separate into v and h
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
 				comm.schedule_recv(neigh[i], outerEdge[i]);
@@ -430,6 +523,7 @@ private:
 			back[i] = 0.0;
 		}
 
+		// @todo
 		/* create inner buffer (as comm buffers) for  */
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
@@ -446,6 +540,7 @@ private:
 		delete[] front;
 		delete[] back;
 
+		// @todo
 		for(int i = 0; i < 4; i++) {
 			if(innerEdge != nullptr) {
 				delete[] innerEdge[i];
@@ -464,6 +559,7 @@ private:
 		back = tmp;
 	}
 
+	// @todo
 	void copy_from_x_to_inner_buffer(NumType *x) {
 		#define LOOP(EDGE, X, Y) \
 		if(neigh[EDGE] != N_INVALID) { \
@@ -480,6 +576,7 @@ private:
 		#undef LOOP
 	}
 
+	// @todo
 	void copy_outer_buffer_to(NumType *target) {
 		#define LOOP(EDGE, X, Y) \
 		if(neigh[EDGE] != N_INVALID) { \
