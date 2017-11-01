@@ -151,25 +151,25 @@ public:
 		wait_for_rqb(recv_rqb);
 	}
 
-	#define SCHEDULE_H_OP(OP, RQB) \
+	#define SCHEDULE_OP(OP, RQB) \
 		auto idx = RQB.second; \
 		auto* rq = RQB.first + idx; \
 		OP(buffer, size, NUM_MPI_DT, nodeId, 1, MPI_COMM_WORLD, rq); \
 		RQB.second++;
 
-	void schedule_h_send(int nodeId, NumType* buffer, Coord size) {
+	void schedule_send(int nodeId, NumType *buffer, Coord size) {
 		//DL( "schedule send to " << nodeId )
-		SCHEDULE_H_OP(MPI_Isend, send_rqb)
+		SCHEDULE_OP(MPI_Isend, send_rqb)
 		//DL( "rqb afterwards" << send_rqb.second )
 	}
 
-	void schedule_h_recv(int nodeId, NumType* buffer, Coord size) {
+	void schedule_recv(int nodeId, NumType *buffer, Coord size) {
 		//DL( "schedule receive from " << nodeId )
-		SCHEDULE_H_OP(MPI_Irecv, recv_rqb)
+		SCHEDULE_OP(MPI_Irecv, recv_rqb)
 		//DL( "rqb afterwards" << recv_rqb.second )
 	}
 
-	#undef SCHEDULE_H_OP
+	#undef SCHEDULE_OP
 
 private:
 	const static int RQ_COUNT = 4;
@@ -211,95 +211,84 @@ private:
 	}
 };
 
+
+/*
+ * Vertical borders (y - external, x - internal)
+ *  ___________
+ * |___________|
+ * |y|x|___|x|y|
+ * |y|x|___|x|y|
+ * |y|x|___|x|y|
+ * |___________|
+ *
+ * Horizontal borders
+ *  ___________
+ * |__yyyyyyy__|
+ * | |xxxxxxx| |
+ * | | |___| | |
+ * | |xxxxxxx| |
+ * |__yyyyyyy__|
+ *
+ * In case of internal borders we have overlap, with external we don't
+ */
+
+enum border_side {
+	IN = 0,
+	OUT = 4,
+};
+
 class NeighboursCommProxy {
 public:
-	// Partitioner as parameter? or ClusterManager?
-	NeighboursCommProxy(int* neigh_mapping, const Coord innerLength, const Coord gap_width)
-			: innerLength(innerLength), gap_width(gap_width), neigh_mapping(neigh_mapping)
+	NeighboursCommProxy(int* neigh_mapping, 
+	                    const Coord innerLength, 
+	                    const Coord gap_width, 
+	                    std::function<Coord(const Coord, const Coord)> cm) : inner_size(innerLength)
+			
 	{
-		create_types_for_vertical_transfers(innerLength, gap_width);
-		MPI_Type_commit(&vert_in_dt);
-		MPI_Type_commit(&vert_out_dt);
+		const auto outer_size = inner_size + 2*gap_width;
+		const auto nm = neigh_mapping;
 
-		// inner type needs to skip first blank, then innies and finally
+		MPI_Type_vector(1, gap_width, outer_size, NUM_MPI_DT, &vert_dt);
+		MPI_Type_commit(&vert_dt);
 
-		const auto outer_size = innerLength + 2*gap_width;
+		info[IN + LEFT] = comms_info(nm[LEFT], cm(0,0), vert_dt);
+		info[IN + RIGHT] = comms_info(nm[RIGHT], cm(inner_size-gap_width, 0), vert_dt);
+		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), NUM_MPI_DT);
+		info[IN + BOTTOM] = comms_info(nm[TOP], cm(0,0), NUM_MPI_DT);
 
-		if(neigh_mapping[LEFT] != N_INVALID) {
-			in[LEFT] = comms_info(neigh_mapping[LEFT], )
-		}
-
-		for(auto n: {LEFT, RIGHT}) {
-			if(neigh_mapping[n] != N_INVALID) {
-				in[n]
-			}
-		}
-
-		for(auto n: {TOP, BOTTOM}) {
-			if(neigh_mapping[n] != N_INVALID) {
-
-			}
-		}
+		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1,0), vert_dt);
+		info[OUT + RIGHT] = comms_info(nm[RIGHT], cm(inner_size, 0), vert_dt);
+		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), NUM_MPI_DT);
+		info[OUT + BOTTOM] = comms_info(nm[TOP], cm(0,-1), NUM_MPI_DT);
 	}
 
 	~NeighboursCommProxy() {
-		MPI_Type_free(&vert_out_dt);
-		MPI_Type_free(&vert_in_dt);
+		MPI_Type_free(&vert_dt);
 	}
 
-	void schedule_send(Comms& c, Neighbour n, NumType* buffer) {
-		// send always in, receive always out
-		if(n == LEFT || n == RI)
+	void schedule_send(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
+		auto inf = info[bs + n];
+		c.schedule_send(info->node_id, buffer + info->offset, inner_size);
 	}
 
-	void schedule_recv(Comms& c, Neighbour n, NumType* buffer) {
-
+	void schedule_recv(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
+		auto inf = info[bs + n];
+		c.schedule_recv(info->node_id, buffer + info->offset, inner_size);
 	}
 
 private:
 	struct comms_info {
-		comms_info() : valid(false), offset(0), type(MPI_DATATYPE_NULL), node_id(-1) {}
-		comms_info(int nid, Coord offset, MPI_Datatype dt) : valid(true), offset(offset), type(dt), node_id(nid) {}
+		comms_info(int nid, Coord offset, MPI_Datatype dt) : offset(offset), type(dt), node_id(nid) {}
 
-		bool valid;
 		Coord offset;
 		MPI_Datatype type;
 		int node_id;
 	};
 
-	comms_info in[4];
-	comms_info out[4];
+	const Coord inner_size;
+	comms_info info[8];
 
-	const Coord innerLength;
-	const Coord gap_width;
-
-	MPI_Datatype vert_in_dt;
-	MPI_Datatype vert_out_dt;
-
-	/*
-	 * Vertical borders (y - external, x - internal)
-	 *  ___________
-	 * |___________|
-	 * |y|x|___|x|y|
-	 * |y|x|___|x|y|
-	 * |y|x|___|x|y|
-	 * |___________|
-	 *
-	 * Horizontal borders
-	 *  ___________
-	 * |__yyyyyyy__|
-	 * | |xxxxxxx| |
-	 * | | |___| | |
-	 * | |xxxxxxx| |
-	 * |__yyyyyyy__|
-	 *
-	 * In case of internal borders we have overlap, with external we don't
-	 */
-
-	void create_types_for_vertical_transfers(const Coord inner_size, const Coord gap_width) {
-		MPI_Type_vector(1, gap_width, inner_size, NUM_MPI_DT, &vert_in_dt);
-		MPI_Type_vector(1, gap_width, inner_size + 2*gap_width, NUM_MPI_DT, &vert_out_dt);
-	};
+	MPI_Datatype vert_dt;
 };
 
 
@@ -549,8 +538,25 @@ private:
 		}
 	}
 
+	
+	/*
+	 * Because MPI reads (and writes) directy from front/back, memory layout is no longer arbitrary
+	 * I decided to store coordinate system in horizontally mirrored manner:
+	 *             x
+	 *  (0,0) -------------->
+	 *    |
+	 *    |
+	 *  y |
+	 *    |
+	 *    |
+	 *    |
+	 * 
+	 *  x corresponds to j, y corresponds to i
+	 *  stored in row major manner ( adr = i*width + j = y*width + x )
+	 * 
+	 */
 	NumType* elAddress(const Coord x, const Coord y, NumType* base) {
-		return base + outerSize*(borderWidth + x) + (borderWidth + y);
+		return base + outerSize*(borderWidth + y) + (borderWidth + x);
 	}
 
 	void swapBuffers() {
