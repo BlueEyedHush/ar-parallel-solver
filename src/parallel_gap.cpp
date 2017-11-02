@@ -158,15 +158,15 @@ public:
 		RQB.second++;
 
 	void schedule_send(int nodeId, NumType *buffer, Coord size) {
-		//DL( "schedule send to " << nodeId )
+		DL( "schedule send to " << nodeId )
 		SCHEDULE_OP(MPI_Isend, send_rqb)
-		//DL( "rqb afterwards" << send_rqb.second )
+		DL( "rqb afterwards" << send_rqb.second )
 	}
 
 	void schedule_recv(int nodeId, NumType *buffer, Coord size) {
-		//DL( "schedule receive from " << nodeId )
+		DL( "schedule receive from " << nodeId )
 		SCHEDULE_OP(MPI_Irecv, recv_rqb)
-		//DL( "rqb afterwards" << recv_rqb.second )
+		DL( "rqb afterwards" << recv_rqb.second )
 	}
 
 	#undef SCHEDULE_OP
@@ -254,12 +254,12 @@ public:
 		info[IN + LEFT] = comms_info(nm[LEFT], cm(0,0), vert_dt);
 		info[IN + RIGHT] = comms_info(nm[RIGHT], cm(inner_size-gap_width, 0), vert_dt);
 		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), NUM_MPI_DT);
-		info[IN + BOTTOM] = comms_info(nm[TOP], cm(0,0), NUM_MPI_DT);
+		info[IN + BOTTOM] = comms_info(nm[BOTTOM], cm(0,0), NUM_MPI_DT);
 
 		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1,0), vert_dt);
 		info[OUT + RIGHT] = comms_info(nm[RIGHT], cm(inner_size, 0), vert_dt);
 		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), NUM_MPI_DT);
-		info[OUT + BOTTOM] = comms_info(nm[TOP], cm(0,-1), NUM_MPI_DT);
+		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], cm(0,-1), NUM_MPI_DT);
 	}
 
 	~NeighboursCommProxy() {
@@ -267,13 +267,15 @@ public:
 	}
 
 	void schedule_send(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
-		auto inf = info[bs + n];
-		c.schedule_send(info->node_id, buffer + info->offset, inner_size);
+		auto& inf = info[bs + n];
+		// DL( "proxy_send, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id )
+		c.schedule_send(inf.node_id, buffer + inf.offset, inner_size);
 	}
 
 	void schedule_recv(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
-		auto inf = info[bs + n];
-		c.schedule_recv(info->node_id, buffer + info->offset, inner_size);
+		auto& inf = info[bs + n];
+		// DL( "proxy_recv, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id )
+		c.schedule_recv(inf.node_id, buffer + inf.offset, inner_size);
 	}
 
 private:
