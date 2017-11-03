@@ -20,8 +20,10 @@
 
 #ifdef DEBUG
 	#define DL(X) std::cerr << X << std::endl;
+	#define DBG_ONLY(X) X;
 #else
 	#define DL(X) (void)0;
+	#define DBG_ONLY(X) (void)0;
 #endif
 
 using Coord = long long;

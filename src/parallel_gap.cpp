@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstring>
+#include <iomanip>
 #include "shared.h"
 
 const int N_INVALID = -1;
@@ -154,16 +155,16 @@ public:
 	#define SCHEDULE_OP(OP, RQB) \
 		auto idx = RQB.second; \
 		auto* rq = RQB.first + idx; \
-		OP(buffer, size, NUM_MPI_DT, nodeId, 1, MPI_COMM_WORLD, rq); \
+		OP(buffer, size, type, nodeId, 1, MPI_COMM_WORLD, rq); \
 		RQB.second++;
 
-	void schedule_send(int nodeId, NumType *buffer, Coord size) {
+	void schedule_send(int nodeId, NumType *buffer, Coord size, MPI_Datatype type) {
 		DL( "schedule send to " << nodeId )
 		SCHEDULE_OP(MPI_Isend, send_rqb)
 		DL( "rqb afterwards" << send_rqb.second )
 	}
 
-	void schedule_recv(int nodeId, NumType *buffer, Coord size) {
+	void schedule_recv(int nodeId, NumType *buffer, Coord size, MPI_Datatype type) {
 		DL( "schedule receive from " << nodeId )
 		SCHEDULE_OP(MPI_Irecv, recv_rqb)
 		DL( "rqb afterwards" << recv_rqb.second )
@@ -248,18 +249,30 @@ public:
 		const auto outer_size = inner_size + 2*gap_width;
 		const auto nm = neigh_mapping;
 
-		MPI_Type_vector(1, gap_width, outer_size, NUM_MPI_DT, &vert_dt);
+		MPI_Type_vector(inner_size, gap_width, outer_size, NUM_MPI_DT, &vert_dt);
 		MPI_Type_commit(&vert_dt);
 
-		info[IN + LEFT] = comms_info(nm[LEFT], cm(0,0), vert_dt);
-		info[IN + RIGHT] = comms_info(nm[RIGHT], cm(inner_size-gap_width, 0), vert_dt);
-		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), NUM_MPI_DT);
-		info[IN + BOTTOM] = comms_info(nm[BOTTOM], cm(0,0), NUM_MPI_DT);
+		/* put here coordinates of the beginning; since storage is flipped horizontally, (0,0) /x,y/
+		 * is stored at the beginning, then (1,0), (2,0), ... (0,1) and so on
+		 */
+		info[IN + LEFT] = comms_info(nm[LEFT], cm(0,0), vert_dt, 1);
+		info[IN + RIGHT] = comms_info(nm[RIGHT], cm(inner_size-gap_width, 0), vert_dt, 1);
+		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), NUM_MPI_DT, inner_size);
+		info[IN + BOTTOM] = comms_info(nm[BOTTOM], cm(0,0), NUM_MPI_DT, inner_size);
 
-		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1,0), vert_dt);
-		info[OUT + RIGHT] = comms_info(nm[RIGHT], cm(inner_size, 0), vert_dt);
-		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), NUM_MPI_DT);
-		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], cm(0,-1), NUM_MPI_DT);
+		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1,0), vert_dt, 1);
+		info[OUT + RIGHT] = comms_info(nm[RIGHT], cm(inner_size, 0), vert_dt, 1);
+		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), NUM_MPI_DT, inner_size);
+		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], cm(0,-1), NUM_MPI_DT, inner_size);
+
+		DL( "inner_size = " << inner_size << ", gap_width = " << gap_width << ", outer_size = " << outer_size )
+
+		#ifdef DEBUG
+		for(int i = 0; i < 8; i++) {
+			std::cerr << "CommsInfo: node_id = " << info[i].node_id << ", offset = " << info[i].offset << ", type = "
+			                            << ((info[i].type == vert_dt) ? "vert_dt" : "num_type") << std::endl;
+		}
+			#endif
 	}
 
 	~NeighboursCommProxy() {
@@ -268,24 +281,28 @@ public:
 
 	void schedule_send(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
 		auto& inf = info[bs + n];
-		// DL( "proxy_send, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id )
-		c.schedule_send(inf.node_id, buffer + inf.offset, inner_size);
+		DL( "proxy_send, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id << ", offset: "
+		                              << inf.offset << ", type = " << ((inf.type == vert_dt) ? "vert_dt" : "num_type") )
+		c.schedule_send(inf.node_id, buffer + inf.offset, inf.size, inf.type);
 	}
 
 	void schedule_recv(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
 		auto& inf = info[bs + n];
-		// DL( "proxy_recv, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id )
-		c.schedule_recv(inf.node_id, buffer + inf.offset, inner_size);
+		DL( "proxy_recv, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id << ", offset: "
+		                              << inf.offset << ", type = " << ((inf.type == vert_dt) ? "vert_dt" : "num_type") )
+		c.schedule_recv(inf.node_id, buffer + inf.offset, inf.size, inf.type);
 	}
 
 private:
 	struct comms_info {
 		comms_info() {}
-		comms_info(int nid, Coord offset, MPI_Datatype dt) : offset(offset), type(dt), node_id(nid) {}
+		comms_info(int nid, Coord offset, MPI_Datatype dt, Coord size)
+				: offset(offset), type(dt), node_id(nid), size(size) {}
 
 		Coord offset;
 		MPI_Datatype type;
 		int node_id;
+		Coord size;
 	};
 
 	const Coord inner_size;
@@ -485,6 +502,19 @@ public:
 		swapBuffers();
 	}
 
+	void memory_dump(bool dump_front) {
+		auto* buffer = dump_front ? front : back;
+
+		for(Coord i = 0; i < outerSize; i++) {
+
+			for(Coord j = 0; j < outerSize; j++) {
+				std::cerr << std::fixed << std::setprecision(2) << buffer[i*outerSize+j] << " ";
+			}
+
+			std::cerr << std::endl;
+		}
+	}
+
 private:
 	ClusterManager& cm;
 	Comms& comm;
@@ -600,11 +630,15 @@ int main(int argc, char **argv) {
         */
 	});
 
+	DBG_ONLY( w.memory_dump(true) )
+
 	DL( "calculated boundary condition, initial communication" )
 
 	/* send our part of initial condition to neighbours */
 	w.send_in_boundary();
 	w.start_wait_for_new_out_border();
+
+	DL( "initial swap" )
 	w.swap();
 
 	DL( "initial communication done" )
@@ -625,6 +659,11 @@ int main(int argc, char **argv) {
 	for(TimeStepCount ts = 0; ts < conf.timeSteps; ts++) {
 		DL( "Entering timestep loop, ts = " << ts )
 
+		DL( "front dump - before innies calculated" )
+		DBG_ONLY( w.memory_dump(true) )
+		DL ("back dump - before innies calculated")
+		DBG_ONLY( w.memory_dump(false) )
+
 		iterate_over_area(wi_area, eq_f);
 		DL( "Innies iterated, ts = " << ts )
 
@@ -633,24 +672,34 @@ int main(int argc, char **argv) {
 		w.ensure_in_boundary_sent();
 		DL( "In boundary sent, ts = " << ts )
 
+		DL( "front dump - innies calculated" )
+		DBG_ONLY( w.memory_dump(true) )
+		DL ("back dump - innies calculated")
+		DBG_ONLY( w.memory_dump(false) )
+
 		for(auto a: ws_area) {
 			iterate_over_area(a, eq_f);
 		}
 
 		DL( "Outies iterated, ts = " << ts )
 
+		DL( "front dump - outies calculated" )
+		DBG_ONLY( w.memory_dump(true) )
+		DL ("back dump - outies calculated")
+		DBG_ONLY( w.memory_dump(false) )
+
 		w.send_in_boundary();
 		DL( "In boundary send scheduled, ts = " << ts )
 		w.start_wait_for_new_out_border();
-
-		DL( "Before swap, ts = " << ts )
-		w.swap();
 
 		DL( "Entering file dump" )
 		if (unlikely(conf.outputEnabled)) {
 			d.dumpBackbuffer(w, ts);
 		}
-		DL( "After dump, ts = " << ts )
+
+		DL( "Before swap, ts = " << ts )
+		w.swap();
+		DL( "After swap, ts = " << ts )
 	}
 
 	MPI_Barrier(cm.getComm());

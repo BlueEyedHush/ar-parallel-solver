@@ -22,6 +22,9 @@ def splitter(sentence, mapping):
             if node_id not in mapping:
                 mapping[node_id] = []
 
+            if str[0] == ' ':
+                str = str[1:]
+
             mapping[node_id].append(str)
 
 
@@ -42,7 +45,18 @@ node_to_log_mapping = {"_": []}
 for line in lines:
     splitter(line, node_to_log_mapping)
 
+node_to_str = {}
 for k in sorted(node_to_log_mapping.iterkeys()):
+    node_to_str[k] = "".join(node_to_log_mapping[k])
+
+# print to stdout everything
+for k in sorted(node_to_str.iterkeys()):
     sys.stdout.write("~~~~ {} ~~~~\n".format(k))
-    sys.stdout.write("".join(node_to_log_mapping[k]))
+    sys.stdout.write(node_to_str[k])
     sys.stdout.write("\n\n")
+
+# print to separate files
+for k in node_to_str.iterkeys():
+    f = open("{}_out".format(k), "w")
+    f.write(node_to_str[k])
+    f.close()
