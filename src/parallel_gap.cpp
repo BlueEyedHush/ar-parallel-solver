@@ -279,15 +279,15 @@ public:
 		MPI_Type_free(&vert_dt);
 	}
 
-	void schedule_send(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
-		auto& inf = info[bs + n];
+	void schedule_send(Comms& c, Neighbour n, NumType* buffer) {
+		auto& inf = info[IN + n];
 		DL( "proxy_send, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id << ", offset: "
 		                              << inf.offset << ", type = " << ((inf.type == vert_dt) ? "vert_dt" : "num_type") )
 		c.schedule_send(inf.node_id, buffer + inf.offset, inf.size, inf.type);
 	}
 
-	void schedule_recv(Comms& c, Neighbour n, NumType* buffer, border_side bs) {
-		auto& inf = info[bs + n];
+	void schedule_recv(Comms& c, Neighbour n, NumType* buffer) {
+		auto& inf = info[OUT + n];
 		DL( "proxy_recv, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id << ", offset: "
 		                              << inf.offset << ", type = " << ((inf.type == vert_dt) ? "vert_dt" : "num_type") )
 		c.schedule_recv(inf.node_id, buffer + inf.offset, inf.size, inf.type);
@@ -485,7 +485,7 @@ public:
 	void send_in_boundary() {
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm_proxy->schedule_send(comm, static_cast<Neighbour>(i), front, IN);
+				comm_proxy->schedule_send(comm, static_cast<Neighbour>(i), front);
 			}
 		}
 	}
@@ -493,7 +493,7 @@ public:
 	void start_wait_for_new_out_border() {
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm_proxy->schedule_recv(comm, static_cast<Neighbour>(i), front, OUT);
+				comm_proxy->schedule_recv(comm, static_cast<Neighbour>(i), front);
 			}
 		}
 	}
