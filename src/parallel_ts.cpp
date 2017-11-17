@@ -617,13 +617,13 @@ int main(int argc, char **argv) {
 	MPI_Barrier(cm.getComm());
 	timer.start();
 
-	auto ww_area = wi.working_workspace_area();
+	auto ww_areas = wi.working_workspace_area();
 	auto wi_area = wi.innies_space_area();
 	auto ws_area = wi.shared_areas();
 
 	DL( "filling boundary condition" )
 
-	iterate_over_area(ww_area, [&w, x_offset, y_offset, h](const Coord x_idx, const Coord y_idx) {
+	iterate_over_area(ww_areas[0], [&w, x_offset, y_offset, h](const Coord x_idx, const Coord y_idx) {
 		auto x = x_offset + x_idx*h;
 		auto y = y_offset + y_idx*h;
 		auto val = f(x,y);
@@ -694,6 +694,35 @@ int main(int argc, char **argv) {
 		DL ("back dump - outies calculated")
 		DBG_ONLY( w.memory_dump(false) )
 
+		DL( "Entering file dump" )
+		if (unlikely(conf.outputEnabled)) {
+			d.dumpBackbuffer(w, ts);
+		}
+
+		DL( "Before swap, ts = " << ts << " t = 0")
+		w.swap();
+		DL( "After swap, ts = " << ts << " t = 0" )
+
+		/* no we start calculation using cached data */
+		for(int i = 1; i < TIME_INTERVAL; i++) {
+			iterate_over_area(ww_areas[i], eq_f);
+
+			DL( "front dump - timeshift calculations for t = " << i )
+			DBG_ONLY( w.memory_dump(true) )
+			DL ("back dump - timsehift calculations for t = " << i )
+			DBG_ONLY( w.memory_dump(false) )
+
+			DL( "Entering file dump" )
+			if (unlikely(conf.outputEnabled)) {
+				d.dumpBackbuffer(w, ts);
+			}
+
+			DL( "Before swap, ts = " << ts << " t = " << i )
+			w.swap();
+			DL( "After swap, ts = " << ts << " t = " << i )
+		}
+
+
 		w.send_in_boundary();
 		DL( "In boundary send scheduled, ts = " << ts )
 		w.start_wait_for_new_out_border();
@@ -732,6 +761,7 @@ int main(int argc, char **argv) {
  * ToDo
  * - +modify workspacemetainfo - it returns vector of areas over which we iterate
  *   - data inside already precalculated - no need to cache it in main
- * - additional loop inside main (in the middle of that loop we only cclaculate innies!)
+ * - +additional loop inside main (in the middle of that loop we only cclaculate innies!)
  * - ennsure Workspace exposes whole area (no need to do it otherwise, is it?)
+ * - review mannger in which number of steps is configured
  */
