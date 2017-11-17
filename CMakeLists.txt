@@ -27,3 +27,7 @@ target_link_libraries(parallel_async ${MPI_LIBRARIES})
 set(PAR_GAP_SOURCE_FILES src/parallel_gap.cpp)
 add_executable(parallel_gap ${PAR_GAP_SOURCE_FILES})
 target_link_libraries(parallel_gap ${MPI_LIBRARIES})
+
+set(PAR_TS_SOURCE_FILES src/parallel_ts.cpp)
+add_executable(parallel_ts ${PAR_TS_SOURCE_FILES})
+target_link_libraries(parallel_ts ${MPI_LIBRARIES})
