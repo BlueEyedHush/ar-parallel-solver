@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <iomanip>
+#include <vector>
 #include "shared.h"
 
 const int N_INVALID = -1;
@@ -352,11 +353,11 @@ struct AreaCoords {
  */
 class WorkspaceMetainfo : private NonCopyable {
 public:
-	WorkspaceMetainfo(const Coord innerSize, const Coord boundaryWidth) {
-		precalculate(innerSize, boundaryWidth);
+	WorkspaceMetainfo(const Coord innerSize, const Coord boundaryWidth, TimeStepCount intervalLen) {
+		precalculate(innerSize, boundaryWidth, intervalLen);
 	}
 
-	const AreaCoords& working_workspace_area() const { return wwa; }
+	const std::vector<AreaCoords>& working_workspace_area() const { return wwas; }
 
 	const AreaCoords& innies_space_area() const { return isa; };
 
@@ -372,17 +373,28 @@ public:
 	const std::array<AreaCoords, 4>& shared_areas() const { return sha; }
 	
 private:
-	AreaCoords wwa;
+	AreaCoords base_wwa;
+	std::vector<AreaCoords> wwas;
 	AreaCoords isa;
 	std::array<AreaCoords, 4> sha;
 	
-	void precalculate(const Coord innerSize, const Coord boundaryWidth) {
+	void precalculate(const Coord innerSize, const Coord boundaryWidth, const TimeStepCount intervalLen) {
 		const auto lid = innerSize-1;
 		
-		wwa.bottomLeft.x = 0;
-		wwa.bottomLeft.y = 0;
-		wwa.upperRight.x = lid;
-		wwa.upperRight.y = lid;
+		base_wwa.bottomLeft.x = 0;
+		base_wwa.bottomLeft.y = 0;
+		base_wwa.upperRight.x = lid;
+		base_wwa.upperRight.y = lid;
+
+		wwas.push_back(base_wwa);
+		for(int i = 1; i < intervalLen; i++) {
+			AreaCoords wwa(base_wwa);
+			base_wwa.bottomLeft.x -= i;
+			base_wwa.bottomLeft.y -= i;
+			base_wwa.upperRight.x += i;
+			base_wwa.upperRight.y += i;
+			wwas.push_back(wwa);
+		}
 
 		isa.bottomLeft.x = boundaryWidth;
 		isa.bottomLeft.y = boundaryWidth;
@@ -714,3 +726,18 @@ int main(int argc, char **argv) {
 
 	return 0;
 }
+
+/*
+ * Changes
+ * - another loop in main, within time range
+ * - communication structure stays identicall, but we perform it at the beginning and end of the whole range
+ * - also we have wider border that must be communicates
+ * - area size is going to depent on the time within range (basically we must add t_r) -> it must be configured
+ * - what about border nodes? we probably reserve more memory and fill it with 0s
+ *
+ * ToDo
+ * - +modify workspacemetainfo - it returns vector of areas over which we iterate
+ *   - data inside already precalculated - no need to cache it in main
+ * - additional loop inside main (in the middle of that loop we only cclaculate innies!)
+ * - ennsure Workspace exposes whole area (no need to do it otherwise, is it?)
+ */
