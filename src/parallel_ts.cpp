@@ -353,8 +353,8 @@ struct AreaCoords {
  */
 class WorkspaceMetainfo : private NonCopyable {
 public:
-	WorkspaceMetainfo(const Coord innerSize, const Coord boundaryWidth, TimeStepCount intervalLen) {
-		precalculate(innerSize, boundaryWidth, intervalLen);
+	WorkspaceMetainfo(const Coord innerSize, TimeStepCount intervalLen) {
+		precalculate(innerSize, intervalLen);
 	}
 
 	const std::vector<AreaCoords>& working_workspace_area() const { return wwas; }
@@ -378,34 +378,28 @@ private:
 	AreaCoords isa;
 	std::array<AreaCoords, 4> sha;
 	
-	void precalculate(const Coord innerSize, const Coord boundaryWidth, const TimeStepCount intervalLen) {
+	void precalculate(const Coord innerSize, const TimeStepCount intervalLen) {
 		const auto lid = innerSize-1;
 		
-		base_wwa.bottomLeft.x = 0;
-		base_wwa.bottomLeft.y = 0;
-		base_wwa.upperRight.x = lid;
-		base_wwa.upperRight.y = lid;
-
-		wwas.push_back(base_wwa);
-		for(int i = 1; i < intervalLen; i++) {
+		for(int i = 0; i < intervalLen; i++) {
 			AreaCoords wwa(base_wwa);
-			base_wwa.bottomLeft.x -= i;
-			base_wwa.bottomLeft.y -= i;
-			base_wwa.upperRight.x += i;
-			base_wwa.upperRight.y += i;
+			base_wwa.bottomLeft.x = 0 - i;
+			base_wwa.bottomLeft.y = 0 - i;
+			base_wwa.upperRight.x = lid + i;
+			base_wwa.upperRight.y = lid + i;
 			wwas.push_back(wwa);
 		}
 
-		isa.bottomLeft.x = boundaryWidth;
-		isa.bottomLeft.y = boundaryWidth;
-		isa.upperRight.x = lid - boundaryWidth;
-		isa.upperRight.y = lid - boundaryWidth;
+		isa.bottomLeft.x = intervalLen;
+		isa.bottomLeft.y = intervalLen;
+		isa.upperRight.x = lid - intervalLen;
+		isa.upperRight.y = lid - intervalLen;
 		
 		sha = {
-			AreaCoords(CSet(0, 0), CSet(boundaryWidth-1, lid)), // left
-			AreaCoords(CSet(innerSize - boundaryWidth, 0), CSet(lid, lid)), // right
-			AreaCoords(CSet(boundaryWidth, innerSize-boundaryWidth), CSet(lid-boundaryWidth, lid)), // top
-			AreaCoords(CSet(boundaryWidth, 0), CSet(lid-boundaryWidth, boundaryWidth-1)), // bottom
+			AreaCoords(CSet(0, 0), CSet(intervalLen-1, lid)), // left
+			AreaCoords(CSet(innerSize - intervalLen, 0), CSet(lid, lid)), // right
+			AreaCoords(CSet(intervalLen, innerSize-intervalLen), CSet(lid-intervalLen, lid)), // top
+			AreaCoords(CSet(intervalLen, 0), CSet(lid-intervalLen, intervalLen-1)), // bottom
 		};
 	}
 };
@@ -419,8 +413,8 @@ void test_wmi() {
 
 	#define STR(X) std::cerr << X.toStr() << std::endl;
 
-	assert(work_area.bottomLeft == CSet(0,0));
-	assert(work_area.upperRight == CSet(8,8));
+	assert(work_area[0].bottomLeft == CSet(0,0));
+	assert(work_area[0].upperRight == CSet(8,8));
 
 
 	assert(innie.bottomLeft == CSet(2,2));
@@ -594,7 +588,7 @@ std::string filenameGenerator(int nodeId) {
 	return oss.str();
 }
 
-const Coord BOUNDARY_WIDTH = 1;
+const Coord TIME_INTERVAL = 1;
 
 int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
@@ -608,8 +602,8 @@ int main(int argc, char **argv) {
 	auto h = cm.getPartitioner().get_h();
 
 	Comms comm;
-	Workspace w(n_slice, BOUNDARY_WIDTH, cm, comm);
-	WorkspaceMetainfo wi(n_slice, BOUNDARY_WIDTH);
+	Workspace w(n_slice, TIME_INTERVAL, cm, comm);
+	WorkspaceMetainfo wi(n_slice, TIME_INTERVAL);
 
 	FileDumper<Workspace> d(filenameGenerator(cm.getNodeId()),
 	                        n_slice,
