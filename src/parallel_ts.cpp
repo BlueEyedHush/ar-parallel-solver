@@ -250,6 +250,8 @@ public:
 		const auto outer_size = inner_size + 2*gap_width;
 		const auto nm = neigh_mapping;
 
+		MPI_Type_vector(gap_width, inner_size, outer_size, NUM_MPI_DT, &horiz_dt);
+		MPI_Type_commit(&horiz_dt);
 		MPI_Type_vector(inner_size, gap_width, outer_size, NUM_MPI_DT, &vert_dt);
 		MPI_Type_commit(&vert_dt);
 
@@ -258,13 +260,13 @@ public:
 		 */
 		info[IN + LEFT] = comms_info(nm[LEFT], cm(0,0), vert_dt, 1);
 		info[IN + RIGHT] = comms_info(nm[RIGHT], cm(inner_size-gap_width, 0), vert_dt, 1);
-		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), NUM_MPI_DT, inner_size);
-		info[IN + BOTTOM] = comms_info(nm[BOTTOM], cm(0,0), NUM_MPI_DT, inner_size);
+		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), horiz_dt, 1);
+		info[IN + BOTTOM] = comms_info(nm[BOTTOM], cm(0,0), horiz_dt, 1);
 
-		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1,0), vert_dt, 1);
+		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1*(gap_width),0), vert_dt, 1);
 		info[OUT + RIGHT] = comms_info(nm[RIGHT], cm(inner_size, 0), vert_dt, 1);
-		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), NUM_MPI_DT, inner_size);
-		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], cm(0,-1), NUM_MPI_DT, inner_size);
+		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), horiz_dt, 1);
+		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], cm(0,-1*(gap_width)), horiz_dt, 1);
 
 		DL( "inner_size = " << inner_size << ", gap_width = " << gap_width << ", outer_size = " << outer_size )
 
@@ -278,6 +280,7 @@ public:
 
 	~NeighboursCommProxy() {
 		MPI_Type_free(&vert_dt);
+		MPI_Type_free(&horiz_dt);
 	}
 
 	void schedule_send(Comms& c, Neighbour n, NumType* buffer) {
@@ -310,6 +313,7 @@ private:
 	comms_info info[8];
 
 	MPI_Datatype vert_dt;
+	MPI_Datatype horiz_dt;
 };
 
 
