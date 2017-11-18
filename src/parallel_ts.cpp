@@ -15,6 +15,65 @@ enum Neighbour {
 	TOP = 1,
 	RIGHT = 2,
 	BOTTOM = 3,
+	TL = 4,
+	TR = 5,
+	BL = 6,
+	BR = 7,
+	NEIGHBOUR_VAL_COUNT = 8,
+};
+
+class ClusterMatrix {
+public:
+	ClusterMatrix(const int sideLen) : outSideLen(sideLen+2) {
+		backingStore = new int[outSideLen*outSideLen];
+		fillMatrix(sideLen);
+	}
+
+	~ClusterMatrix() {
+		delete[] backingStore;
+	}
+
+	int idAt(const int i, const int j) {
+		int idx = outSideLen*(i+1) + j+1;
+		return backingStore[idx];
+	}
+
+	std::string toStr() {
+		std::ostringstream ostr;
+
+		for(int i = 0; i < outSideLen; i++) {
+			for(int j = 0; j < outSideLen; j++) {
+				ostr << "| " << backingStore[i*outSideLen+j] << " ";
+			}
+
+			ostr << "|" << std::endl;
+		}
+
+		return ostr.str();
+	}
+
+private:
+	const int outSideLen;
+	int *backingStore;
+
+	void fillMatrix(const int sideLen) {
+		const int totalLen = outSideLen*outSideLen;
+
+		/* borders first - top, bottom, left, right */
+		for(int i = 0; i < outSideLen; i++) { backingStore[i] = N_INVALID; }
+		for(int i = outSideLen*(outSideLen-1); i < totalLen; i++) { backingStore[i] = N_INVALID; }
+		for(int i = 0; i < totalLen; i += outSideLen) { backingStore[i] = N_INVALID; }
+		for(int i = outSideLen-1; i < totalLen; i += outSideLen) { backingStore[i] = N_INVALID; }
+
+		/* rest */
+		int nodeId = 0;
+		for(int i = 1; i < outSideLen-1; i++) {
+			for(int j = 1; j < outSideLen-1; j++) {
+				backingStore[i*outSideLen+j] = nodeId;
+				nodeId += 1;
+			}
+		}
+	}
 };
 
 class ClusterManager : private NonCopyable {
@@ -25,16 +84,18 @@ public:
 		MPI_Comm_size(comm, &nodeCount);
 
 		partitioner = new Partitioner(nodeCount, 0.0, 1.0, N);
-		sideLen = partitioner->get_nodes_grid_dimm();
+		const int sideLen = partitioner->get_nodes_grid_dimm();
 		std::tie(row, column) = partitioner->node_id_to_grid_pos(nodeId);
 
-		initNeighbours();
+		clusterMatrix = new ClusterMatrix(sideLen);
+		precalculateNeighbours();
 
-		err_log() << "Cluster initialized successfully. I'm (" << row << "," << column << ")" << std::endl;
+		err_log() << clusterMatrix->toStr() << std::endl << "And I'm " << nodeId;
 	}
 
 	~ClusterManager() {
 		delete partitioner;
+		delete clusterMatrix;
 		MPI_Finalize();
 	}
 
@@ -64,37 +125,34 @@ public:
 
 private:
 	const static auto comm = MPI_COMM_WORLD;
+	const static int directionMap[][2] = {
+		{-1, 0}, // LEFT = 0,
+		{0, 1}, // TOP = 1,
+		{1, 0}, // RIGHT = 2,
+		{0, -1}, // BOTTOM = 3,
+		{-1, 1}, // TL = 4,
+		{1, 1}, // TR = 5,
+		{-1, -1}, // BL = 6,
+		{1, -1} // BR = 7,
+	};
 
-	int nodeId;
-	int nodeCount;
 	int row;
 	int column;
+	int nodeId;
+	int nodeCount;
+	int neighbours[NEIGHBOUR_VAL_COUNT];
 
+	ClusterMatrix *clusterMatrix;
 	Partitioner *partitioner;
-
-	int sideLen;
-	int neighbours[4];
 
 	std::ostream bitBucket;
 
-	void initNeighbours() {
-		if(row == 0) { neighbours[Neighbour::BOTTOM] = N_INVALID; }
-		else { neighbours[Neighbour::BOTTOM] = nodeId-sideLen; }
-
-		if(row == sideLen-1) { neighbours[Neighbour::TOP] = N_INVALID; }
-		else { neighbours[Neighbour::TOP] = nodeId+sideLen; }
-
-		if(column == 0) { neighbours[Neighbour::LEFT] = N_INVALID; }
-		else { neighbours[Neighbour::LEFT] = nodeId-1; }
-
-		if(column == sideLen-1) { neighbours[Neighbour::RIGHT] = N_INVALID; }
-		else { neighbours[Neighbour::RIGHT] = nodeId+1; }
-
-		err_log() << "Neighbours: "
-		          << " LEFT: " << neighbours[LEFT]
-		          << " TOP: " << neighbours[TOP]
-		          << " RIGHT: " << neighbours[RIGHT]
-		          << " BOTTOM: " << neighbours[BOTTOM] << std::endl;
+	void precalculateNeighbours() {
+		for(int i = 0; i < NEIGHBOUR_VAL_COUNT; i++) {
+			auto ni = row + directionMap[i][0];
+			auto nj = column + directionMap[i][1];
+			neighbours[i] = clusterMatrix->idAt(ni, nj);
+		}
 	}
 };
 
@@ -174,7 +232,7 @@ public:
 	#undef SCHEDULE_OP
 
 private:
-	const static int RQ_COUNT = 4;
+	const static int RQ_COUNT = NEIGHBOUR_VAL_COUNT;
 	using RqBuffer = std::pair<MPI_Request[RQ_COUNT], int>; 
 	
 	RqBuffer send_rqb;
@@ -236,7 +294,7 @@ private:
 
 enum border_side {
 	IN = 0,
-	OUT = 4,
+	OUT = NEIGHBOUR_VAL_COUNT,
 };
 
 class NeighboursCommProxy {
@@ -767,5 +825,9 @@ int main(int argc, char **argv) {
  *   - interval size configurable from cli
  *   - +frames reneding frequency now calculated incorrectly
  *   - +fix metric - frequency seems unintuitive
- *
+ * - communication with corner nodes
+ *   - rewrite ClusterInfo
+ *     - do we still need partitioner? maybe merge them/deduplicate responsibilities?
+ *   - rewrite NeighboursCommProxy
+ *   - send/receive parts of Workspace - we have to initiate communication to more nodes
  */
