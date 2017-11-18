@@ -87,15 +87,11 @@ public:
 		const int sideLen = partitioner->get_nodes_grid_dimm();
 		std::tie(row, column) = partitioner->node_id_to_grid_pos(nodeId);
 
-		clusterMatrix = new ClusterMatrix(sideLen);
-		precalculateNeighbours();
-
-		err_log() << clusterMatrix->toStr() << std::endl << "And I'm " << nodeId;
+		precalculateNeighbours(sideLen);
 	}
 
 	~ClusterManager() {
 		delete partitioner;
-		delete clusterMatrix;
 		MPI_Finalize();
 	}
 
@@ -125,16 +121,7 @@ public:
 
 private:
 	const static auto comm = MPI_COMM_WORLD;
-	const static int directionMap[][2] = {
-		{-1, 0}, // LEFT = 0,
-		{0, 1}, // TOP = 1,
-		{1, 0}, // RIGHT = 2,
-		{0, -1}, // BOTTOM = 3,
-		{-1, 1}, // TL = 4,
-		{1, 1}, // TR = 5,
-		{-1, -1}, // BL = 6,
-		{1, -1} // BR = 7,
-	};
+	const static int directionMap[NEIGHBOUR_VAL_COUNT][2];
 
 	int row;
 	int column;
@@ -142,18 +129,32 @@ private:
 	int nodeCount;
 	int neighbours[NEIGHBOUR_VAL_COUNT];
 
-	ClusterMatrix *clusterMatrix;
 	Partitioner *partitioner;
 
 	std::ostream bitBucket;
 
-	void precalculateNeighbours() {
+	void precalculateNeighbours(const int sideLen) {
+		ClusterMatrix clusterMatrix(sideLen);
+
 		for(int i = 0; i < NEIGHBOUR_VAL_COUNT; i++) {
 			auto ni = row + directionMap[i][0];
 			auto nj = column + directionMap[i][1];
-			neighbours[i] = clusterMatrix->idAt(ni, nj);
+			neighbours[i] = clusterMatrix.idAt(ni, nj);
 		}
+
+		err_log() << clusterMatrix.toStr() << std::endl << "And I'm " << nodeId;
 	}
+};
+
+const int ClusterManager::directionMap[NEIGHBOUR_VAL_COUNT][2] = {
+		{-1, 0}, // LEFT = 0,
+		{0, 1}, // TOP = 1,
+		{1, 0}, // RIGHT = 2,
+		{0, -1}, // BOTTOM = 3,
+		{-1, 1}, // TL = 4,
+		{1, 1}, // TR = 5,
+		{-1, -1}, // BL = 6,
+		{1, -1}, // BR = 7,
 };
 
 /*
