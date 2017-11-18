@@ -491,7 +491,7 @@ public:
 	void send_in_boundary() {
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm_proxy->schedule_send(comm, static_cast<Neighbour>(i), front);
+				comm_proxy->schedule_send(comm, static_cast<Neighbour>(i), back);
 			}
 		}
 	}
@@ -499,7 +499,7 @@ public:
 	void start_wait_for_new_out_border() {
 		for(int i = 0; i < 4; i++) {
 			if(neigh[i] != N_INVALID) {
-				comm_proxy->schedule_recv(comm, static_cast<Neighbour>(i), front);
+				comm_proxy->schedule_recv(comm, static_cast<Neighbour>(i), back);
 			}
 		}
 	}
@@ -638,15 +638,13 @@ int main(int argc, char **argv) {
 
 	DBG_ONLY( w.memory_dump(true) )
 
-	DL( "calculated boundary condition, initial communication" )
-
-	/* send our part of initial condition to neighbours */
-	w.send_in_boundary();
-	w.start_wait_for_new_out_border();
-
 	DL( "initial swap" )
 	w.swap();
 
+	DL( "calculated boundary condition, initial communication" )
+	/* send our part of initial condition to neighbours */
+	w.send_in_boundary();
+	w.start_wait_for_new_out_border();
 	DL( "initial communication done" )
 
 	auto eq_f = [&w](const Coord x_idx, const Coord y_idx) {
@@ -699,6 +697,7 @@ int main(int argc, char **argv) {
 			d.dumpBackbuffer(w, ts);
 		}
 
+		/* after finished iteration, calultions you just made must end up in back-buffer -> you need to swap */
 		DL( "Before swap, ts = " << ts << " t = 0")
 		w.swap();
 		DL( "After swap, ts = " << ts << " t = 0" )
@@ -726,15 +725,7 @@ int main(int argc, char **argv) {
 		w.send_in_boundary();
 		DL( "In boundary send scheduled, ts = " << ts )
 		w.start_wait_for_new_out_border();
-
-		DL( "Entering file dump" )
-		if (unlikely(conf.outputEnabled)) {
-			d.dumpBackbuffer(w, ts);
-		}
-
-		DL( "Before swap, ts = " << ts )
-		w.swap();
-		DL( "After swap, ts = " << ts )
+		DL( "Initiated receive requests for new boundary, ts = " << ts )
 	}
 
 	MPI_Barrier(cm.getComm());
@@ -762,6 +753,10 @@ int main(int argc, char **argv) {
  * - +modify workspacemetainfo - it returns vector of areas over which we iterate
  *   - data inside already precalculated - no need to cache it in main
  * - +additional loop inside main (in the middle of that loop we only cclaculate innies!)
- * - ennsure Workspace exposes whole area (no need to do it otherwise, is it?)
- * - review mannger in which number of steps is configured
+ *   - +it seems it requires to use backbuffer for communication, not front buffer
+ *   - dump front, not back buffer
+ * - +ennsure Workspace exposes whole area (no need to do it otherwise, is it?)
+ * - +review mannger in which number of steps is configured
+ *   - interval size configurable from cli
+ *
  */
