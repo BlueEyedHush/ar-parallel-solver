@@ -380,7 +380,7 @@ private:
 	};
 
 	const Coord inner_size;
-	comms_info info[8];
+	comms_info info[2*NEIGHBOUR_VAL_COUNT];
 
 	MPI_Datatype vert_dt;
 	MPI_Datatype horiz_dt;
