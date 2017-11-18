@@ -67,7 +67,7 @@ private:
 
 		/* rest */
 		int nodeId = 0;
-		for(int i = 1; i < outSideLen-1; i++) {
+		for(int i = outSideLen-2; i > 0 ; i--) {
 			for(int j = 1; j < outSideLen-1; j++) {
 				backingStore[i*outSideLen+j] = nodeId;
 				nodeId += 1;
@@ -313,6 +313,8 @@ public:
 		MPI_Type_commit(&horiz_dt);
 		MPI_Type_vector(inner_size, gap_width, outer_size, NUM_MPI_DT, &vert_dt);
 		MPI_Type_commit(&vert_dt);
+		MPI_Type_vector(gap_width, gap_width, outer_size, NUM_MPI_DT, &corner_dt);
+		MPI_Type_commit(&corner_dt);
 
 		/* put here coordinates of the beginning; since storage is flipped horizontally, (0,0) /x,y/
 		 * is stored at the beginning, then (1,0), (2,0), ... (0,1) and so on
@@ -321,25 +323,34 @@ public:
 		info[IN + RIGHT] = comms_info(nm[RIGHT], cm(inner_size-gap_width, 0), vert_dt, 1);
 		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), horiz_dt, 1);
 		info[IN + BOTTOM] = comms_info(nm[BOTTOM], cm(0,0), horiz_dt, 1);
+		info[IN + TL] = comms_info(nm[TL], cm(0,inner_size-gap_width), corner_dt, 1);
+		info[IN + TR] = comms_info(nm[TR], cm(inner_size-gap_width,innerLength-gap_width), corner_dt, 1);
+		info[IN + BL] = comms_info(nm[BL], cm(0,0), corner_dt, 1);
+		info[IN + BR] = comms_info(nm[BR], cm(inner_size-gap_width,0), corner_dt, 1);
 
 		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1*(gap_width),0), vert_dt, 1);
 		info[OUT + RIGHT] = comms_info(nm[RIGHT], cm(inner_size, 0), vert_dt, 1);
 		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), horiz_dt, 1);
 		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], cm(0,-1*(gap_width)), horiz_dt, 1);
+		info[OUT + TL] = comms_info(nm[TL], cm((-1)*gap_width,inner_size), corner_dt, 1);
+		info[OUT + TR] = comms_info(nm[TR], cm(inner_size,inner_size), corner_dt, 1);
+		info[OUT + BL] = comms_info(nm[BL], cm((-1)*gap_width,(-1)*gap_width), corner_dt, 1);
+		info[OUT + BR] = comms_info(nm[BR], cm(inner_size,(-1)*gap_width), corner_dt, 1);
 
 		DL( "inner_size = " << inner_size << ", gap_width = " << gap_width << ", outer_size = " << outer_size )
 
 		#ifdef DEBUG
-		for(int i = 0; i < 8; i++) {
+		for(int i = 0; i < NEIGHBOUR_VAL_COUNT*2; i++) {
 			std::cerr << "CommsInfo: node_id = " << info[i].node_id << ", offset = " << info[i].offset << ", type = "
 			                            << ((info[i].type == vert_dt) ? "vert_dt" : "num_type") << std::endl;
 		}
-			#endif
+		#endif
 	}
 
 	~NeighboursCommProxy() {
 		MPI_Type_free(&vert_dt);
 		MPI_Type_free(&horiz_dt);
+		MPI_Type_free(&corner_dt);
 	}
 
 	void schedule_send(Comms& c, Neighbour n, NumType* buffer) {
@@ -373,6 +384,7 @@ private:
 
 	MPI_Datatype vert_dt;
 	MPI_Datatype horiz_dt;
+	MPI_Datatype corner_dt;
 };
 
 
@@ -551,7 +563,7 @@ public:
 	}
 
 	void send_in_boundary() {
-		for(int i = 0; i < 4; i++) {
+		for(int i = 0; i < NEIGHBOUR_VAL_COUNT; i++) {
 			if(neigh[i] != N_INVALID) {
 				comm_proxy->schedule_send(comm, static_cast<Neighbour>(i), back);
 			}
@@ -559,7 +571,7 @@ public:
 	}
 
 	void start_wait_for_new_out_border() {
-		for(int i = 0; i < 4; i++) {
+		for(int i = 0; i < NEIGHBOUR_VAL_COUNT; i++) {
 			if(neigh[i] != N_INVALID) {
 				comm_proxy->schedule_recv(comm, static_cast<Neighbour>(i), back);
 			}
@@ -827,8 +839,8 @@ int main(int argc, char **argv) {
  *   - +frames reneding frequency now calculated incorrectly
  *   - +fix metric - frequency seems unintuitive
  * - communication with corner nodes
- *   - rewrite ClusterInfo
- *     - do we still need partitioner? maybe merge them/deduplicate responsibilities?
- *   - rewrite NeighboursCommProxy
- *   - send/receive parts of Workspace - we have to initiate communication to more nodes
+ *   - +rewrite ClusterInfo
+ *     - +do we still need partitioner? maybe merge them/deduplicate responsibilities?
+ *   - +rewrite NeighboursCommProxy
+ *   - +send/receive parts of Workspace - we have to initiate communication to more nodes
  */
