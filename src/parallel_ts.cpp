@@ -373,7 +373,6 @@ public:
 	const std::array<AreaCoords, 4>& shared_areas() const { return sha; }
 	
 private:
-	AreaCoords base_wwa;
 	std::vector<AreaCoords> wwas;
 	AreaCoords isa;
 	std::array<AreaCoords, 4> sha;
@@ -382,11 +381,11 @@ private:
 		const auto lid = innerSize-1;
 		
 		for(int i = 0; i < intervalLen; i++) {
-			AreaCoords wwa(base_wwa);
-			base_wwa.bottomLeft.x = 0 - i;
-			base_wwa.bottomLeft.y = 0 - i;
-			base_wwa.upperRight.x = lid + i;
-			base_wwa.upperRight.y = lid + i;
+			AreaCoords wwa;
+			wwa.bottomLeft.x = 0 - i;
+			wwa.bottomLeft.y = 0 - i;
+			wwa.upperRight.x = lid + i;
+			wwa.upperRight.y = lid + i;
 			wwas.push_back(wwa);
 		}
 
@@ -620,6 +619,10 @@ int main(int argc, char **argv) {
 	auto ww_areas = wi.working_workspace_area();
 	auto wi_area = wi.innies_space_area();
 	auto ws_area = wi.shared_areas();
+
+	for(auto a: ww_areas) {
+		std::cerr << "Workspace area:" << a.toStr() << std::endl;
+	}
 
 	DL( "filling boundary condition" )
 
