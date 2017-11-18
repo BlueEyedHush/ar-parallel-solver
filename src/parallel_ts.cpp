@@ -282,14 +282,14 @@ public:
 
 	void schedule_send(Comms& c, Neighbour n, NumType* buffer) {
 		auto& inf = info[IN + n];
-		DL( "proxy_send, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id << ", offset: "
+		DL( "proxy_send, neighbour: " << n << ", info_target: " << inf.node_id << ", offset: "
 		                              << inf.offset << ", type = " << ((inf.type == vert_dt) ? "vert_dt" : "num_type") )
 		c.schedule_send(inf.node_id, buffer + inf.offset, inf.size, inf.type);
 	}
 
 	void schedule_recv(Comms& c, Neighbour n, NumType* buffer) {
 		auto& inf = info[OUT + n];
-		DL( "proxy_recv, neighbour: " << n << ", bs: " << bs << ", info_target: " << inf.node_id << ", offset: "
+		DL( "proxy_recv, neighbour: " << n << ", info_target: " << inf.node_id << ", offset: "
 		                              << inf.offset << ", type = " << ((inf.type == vert_dt) ? "vert_dt" : "num_type") )
 		c.schedule_recv(inf.node_id, buffer + inf.offset, inf.size, inf.type);
 	}
@@ -587,7 +587,7 @@ std::string filenameGenerator(int nodeId) {
 	return oss.str();
 }
 
-const Coord TIME_INTERVAL = 1;
+const Coord TIME_INTERVAL = 2;
 
 int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
@@ -609,7 +609,7 @@ int main(int argc, char **argv) {
 	                        x_offset,
 	                        y_offset,
 	                        h,
-	                        get_freq_sel(conf.timeSteps));
+	                        sel_first_k_policy(10));
 
 	Timer timer;
 
@@ -697,7 +697,7 @@ int main(int argc, char **argv) {
 
 		DL( "Entering file dump" )
 		if (unlikely(conf.outputEnabled)) {
-			d.dumpBackbuffer(w, ts);
+			d.dumpBackbuffer(w, ts*TIME_INTERVAL);
 		}
 
 		/* after finished iteration, calultions you just made must end up in back-buffer -> you need to swap */
@@ -716,7 +716,7 @@ int main(int argc, char **argv) {
 
 			DL( "Entering file dump" )
 			if (unlikely(conf.outputEnabled)) {
-				d.dumpBackbuffer(w, ts);
+				d.dumpBackbuffer(w, ts*TIME_INTERVAL + i);
 			}
 
 			DL( "Before swap, ts = " << ts << " t = " << i )
@@ -761,5 +761,7 @@ int main(int argc, char **argv) {
  * - +ennsure Workspace exposes whole area (no need to do it otherwise, is it?)
  * - +review mannger in which number of steps is configured
  *   - interval size configurable from cli
+ *   - +frames reneding frequency now calculated incorrectly
+ *   - +fix metric - frequency seems unintuitive
  *
  */

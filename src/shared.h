@@ -16,7 +16,7 @@
 #include <fstream>
 #include "NonCopyable.h"
 
-// #define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 	#define DL(X) std::cerr << X << std::endl;
@@ -33,9 +33,8 @@ const MPI_Datatype NUM_MPI_DT = MPI_DOUBLE;
 const auto NumPrecision = std::numeric_limits<NumType>::max_digits10;
 using Duration = long long;
 
-/* dimension of inner work area (without border) */
-const Coord DUMP_SPATIAL_FREQUENCY = 25;
-const TimeStepCount DUMP_TEMPORAL_FREQUENCY = 100;
+const Coord KEEP_X_POINTS = 25;
+const TimeStepCount KEEP_X_TIMEFRAMES = 100;
 
 /* 0                       1
  *    _*_*_*_*_ _*_*_*_*_
@@ -184,7 +183,7 @@ Config parse_cli(int argc, char **argv) {
 }
 
 auto get_freq_sel(const TimeStepCount stepsCount) {
-	auto dumpEvery = stepsCount/DUMP_TEMPORAL_FREQUENCY;
+	auto dumpEvery = std::max(stepsCount/KEEP_X_TIMEFRAMES, static_cast<unsigned long int>(1));
 
 	std::function<bool(const Coord)> f = [dumpEvery](const Coord t) {
 		return t % dumpEvery == 0;
@@ -221,14 +220,14 @@ public:
 			: prefix(prefix), N(n_partition), offset_x(offset_x), offset_y(offset_y), step(step), sel(selector),
 			  nextDumpId(0) {}
 
-	void dumpBackbuffer(W& w, const TimeStepCount it_time, const Coord keep_snapshots = DUMP_SPATIAL_FREQUENCY) {
+	void dumpBackbuffer(W& w, const TimeStepCount it_time, const Coord keep_snapshots = KEEP_X_POINTS) {
 
 		if(!sel(it_time)) {
 			return;
 		}
 
 		auto edgeLen  = w.getInnerLength();
-		auto step = edgeLen/keep_snapshots;
+		auto step = std::max(edgeLen/keep_snapshots, static_cast<long long int>(1));
 
 		#ifdef DEBUG
 		std::cerr << "edgeLen: " << edgeLen
