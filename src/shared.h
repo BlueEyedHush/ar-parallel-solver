@@ -16,7 +16,7 @@
 #include <fstream>
 #include "NonCopyable.h"
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 	#define DL(X) std::cerr << X << std::endl;
