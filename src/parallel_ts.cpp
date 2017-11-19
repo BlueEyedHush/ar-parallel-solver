@@ -303,7 +303,7 @@ public:
 	OffsetMapper(Coord inner_size, Coord gap_width, std::function<Coord(const Coord, const Coord)> cm) {
 		offsets[IN + LEFT] = cm(0,0);
 		offsets[IN + RIGHT] = cm(inner_size-gap_width, 0);
-		offsets[IN + TOP] = cm(0,inner_size-1);
+		offsets[IN + TOP] = cm(0,inner_size-gap_width);
 		offsets[IN + BOTTOM] = cm(0,0);
 		offsets[IN + TL] = cm(0,inner_size-gap_width);
 		offsets[IN + TR] = cm(inner_size-gap_width,inner_size-gap_width);
@@ -380,23 +380,23 @@ public:
 		/* put here coordinates of the beginning; since storage is flipped horizontally, (0,0) /x,y/
 		 * is stored at the beginning, then (1,0), (2,0), ... (0,1) and so on
 		 */
-		info[IN + LEFT] = comms_info(nm[LEFT], cm(0,0), vert_dt, 1);
-		info[IN + RIGHT] = comms_info(nm[RIGHT], cm(inner_size-gap_width, 0), vert_dt, 1);
-		info[IN + TOP] = comms_info(nm[TOP], cm(0,inner_size-1), horiz_dt, 1);
-		info[IN + BOTTOM] = comms_info(nm[BOTTOM], cm(0,0), horiz_dt, 1);
-		info[IN + TL] = comms_info(nm[TL], cm(0,inner_size-gap_width), corner_dt, 1);
-		info[IN + TR] = comms_info(nm[TR], cm(inner_size-gap_width,innerLength-gap_width), corner_dt, 1);
-		info[IN + BL] = comms_info(nm[BL], cm(0,0), corner_dt, 1);
-		info[IN + BR] = comms_info(nm[BR], cm(inner_size-gap_width,0), corner_dt, 1);
-
-		info[OUT + LEFT] = comms_info(nm[LEFT], cm(-1*(gap_width),0), vert_dt, 1);
-		info[OUT + RIGHT] = comms_info(nm[RIGHT], cm(inner_size, 0), vert_dt, 1);
-		info[OUT + TOP] = comms_info(nm[TOP], cm(0,inner_size), horiz_dt, 1);
-		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], cm(0,-1*(gap_width)), horiz_dt, 1);
-		info[OUT + TL] = comms_info(nm[TL], cm((-1)*gap_width,inner_size), corner_dt, 1);
-		info[OUT + TR] = comms_info(nm[TR], cm(inner_size,inner_size), corner_dt, 1);
-		info[OUT + BL] = comms_info(nm[BL], cm((-1)*gap_width,(-1)*gap_width), corner_dt, 1);
-		info[OUT + BR] = comms_info(nm[BR], cm(inner_size,(-1)*gap_width), corner_dt, 1);
+		OffsetMapper m(inner_size, gap_width, cm);
+		info[IN + LEFT] = comms_info(nm[LEFT], m.offsets[IN + LEFT], vert_dt, 1);
+		info[IN + RIGHT] = comms_info(nm[RIGHT], m.offsets[IN + RIGHT], vert_dt, 1);
+		info[IN + TOP] = comms_info(nm[TOP], m.offsets[IN + TOP], horiz_dt, 1);
+		info[IN + BOTTOM] = comms_info(nm[BOTTOM], m.offsets[IN + BOTTOM], horiz_dt, 1);
+		info[IN + TL] = comms_info(nm[TL], m.offsets[IN + TL], corner_dt, 1);
+		info[IN + TR] = comms_info(nm[TR], m.offsets[IN + TR], corner_dt, 1);
+		info[IN + BL] = comms_info(nm[BL], m.offsets[IN + BL], corner_dt, 1);
+		info[IN + BR] = comms_info(nm[BR], m.offsets[IN + BR], corner_dt, 1);
+		info[OUT + LEFT] = comms_info(nm[LEFT], m.offsets[OUT + LEFT], vert_dt, 1);
+		info[OUT + RIGHT] = comms_info(nm[RIGHT], m.offsets[OUT + RIGHT], vert_dt, 1);
+		info[OUT + TOP] = comms_info(nm[TOP], m.offsets[OUT + TOP], horiz_dt, 1);
+		info[OUT + BOTTOM] = comms_info(nm[BOTTOM], m.offsets[OUT + BOTTOM], horiz_dt, 1);
+		info[OUT + TL] = comms_info(nm[TL], m.offsets[OUT + TL], corner_dt, 1);
+		info[OUT + TR] = comms_info(nm[TR], m.offsets[OUT + TR], corner_dt, 1);
+		info[OUT + BL] = comms_info(nm[BL], m.offsets[OUT + BL], corner_dt, 1);
+		info[OUT + BR] = comms_info(nm[BR], m.offsets[OUT + BR], corner_dt, 1);
 
 		DL( "inner_size = " << inner_size << ", gap_width = " << gap_width << ", outer_size = " << outer_size )
 
@@ -730,7 +730,7 @@ int main(int argc, char **argv) {
 
 	auto conf = parse_cli(argc, argv);
 
-	test_om();
+	// test_om();
 
 	ClusterManager cm(conf.N);
 	auto n_slice = cm.getPartitioner().get_n_slice();
