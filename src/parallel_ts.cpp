@@ -298,6 +298,67 @@ enum border_side {
 	OUT = NEIGHBOUR_VAL_COUNT,
 };
 
+class OffsetMapper {
+public:
+	OffsetMapper(Coord inner_size, Coord gap_width, std::function<Coord(const Coord, const Coord)> cm) {
+		offsets[IN + LEFT] = cm(0,0);
+		offsets[IN + RIGHT] = cm(inner_size-gap_width, 0);
+		offsets[IN + TOP] = cm(0,inner_size-1);
+		offsets[IN + BOTTOM] = cm(0,0);
+		offsets[IN + TL] = cm(0,inner_size-gap_width);
+		offsets[IN + TR] = cm(inner_size-gap_width,inner_size-gap_width);
+		offsets[IN + BL] = cm(0,0);
+		offsets[IN + BR] = cm(inner_size-gap_width,0);
+		offsets[OUT + LEFT] = cm(-1*(gap_width),0);
+		offsets[OUT + RIGHT] = cm(inner_size, 0);
+		offsets[OUT + TOP] = cm(0,inner_size);
+		offsets[OUT + BOTTOM] = cm(0,-1*(gap_width));
+		offsets[OUT + TL] = cm((-1)*gap_width,inner_size);
+		offsets[OUT + TR] = cm(inner_size,inner_size);
+		offsets[OUT + BL] = cm((-1)*gap_width,(-1)*gap_width);
+		offsets[OUT + BR] = cm(inner_size,(-1)*gap_width);
+	}
+
+	Coord offsets[2*NEIGHBOUR_VAL_COUNT];
+};
+
+void test_om() {
+	const Coord innerSize = 6;
+	const Coord gapWidth = 2;
+	OffsetMapper m(innerSize, gapWidth, [](Coord x, Coord y) {
+		return (innerSize+2*gapWidth)*(gapWidth + y) + (gapWidth + x);
+	});
+
+	/* going from (0,0), through (1,0) ... (99,99) */
+	assert(m.offsets[OUT + BL] == 0);
+
+	assert(m.offsets[OUT + BOTTOM] == 2);
+
+	assert(m.offsets[OUT + BR] == 8);
+
+	assert(m.offsets[OUT + LEFT] == 20);
+
+	assert(m.offsets[IN + BOTTOM] == 22);
+	assert(m.offsets[IN + LEFT] == 22);
+	assert(m.offsets[IN + BL] == 22);
+
+	assert(m.offsets[IN + BR] == 26);
+	assert(m.offsets[IN + RIGHT] == 26);
+
+	assert(m.offsets[OUT + RIGHT] == 28);
+
+	assert(m.offsets[IN + TOP] == 62);
+	assert(m.offsets[IN + TL] == 62);
+
+	assert(m.offsets[IN + TR] == 66);
+
+	assert(m.offsets[OUT + TL] == 80);
+
+	assert(m.offsets[OUT + TOP] == 82);
+
+	assert(m.offsets[OUT + TR] == 88);
+}
+
 class NeighboursCommProxy {
 public:
 	NeighboursCommProxy(int* neigh_mapping, 
@@ -668,6 +729,8 @@ int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
 
 	auto conf = parse_cli(argc, argv);
+
+	test_om();
 
 	ClusterManager cm(conf.N);
 	auto n_slice = cm.getPartitioner().get_n_slice();
