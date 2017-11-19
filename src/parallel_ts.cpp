@@ -33,8 +33,8 @@ public:
 		delete[] backingStore;
 	}
 
-	int idAt(const int i, const int j) {
-		int idx = outSideLen*(i+1) + j+1;
+	int idAt(const int row, const int column) {
+		int idx = outSideLen*(row+1) + column+1;
 		return backingStore[idx];
 	}
 
@@ -137,24 +137,25 @@ private:
 		ClusterMatrix clusterMatrix(sideLen);
 
 		for(int i = 0; i < NEIGHBOUR_VAL_COUNT; i++) {
-			auto ni = row + directionMap[i][0];
-			auto nj = column + directionMap[i][1];
-			neighbours[i] = clusterMatrix.idAt(ni, nj);
+			auto r = row + directionMap[i][0];
+			auto c = column + directionMap[i][1];
+			neighbours[i] = clusterMatrix.idAt(r, c);
 		}
 
 		err_log() << clusterMatrix.toStr() << std::endl << "And I'm " << nodeId;
 	}
 };
 
+/* [x][0] - row offset, [x][1] - column offset */
 const int ClusterManager::directionMap[NEIGHBOUR_VAL_COUNT][2] = {
-		{-1, 0}, // LEFT = 0,
-		{0, 1}, // TOP = 1,
-		{1, 0}, // RIGHT = 2,
-		{0, -1}, // BOTTOM = 3,
-		{-1, 1}, // TL = 4,
-		{1, 1}, // TR = 5,
+		{+0, -1}, // LEFT = 0,
+		{+1, +0}, // TOP = 1,
+		{+0, +1}, // RIGHT = 2,
+		{-1, +0}, // BOTTOM = 3,
+		{+1, -1}, // TL = 4,
+		{+1, +1}, // TR = 5,
 		{-1, -1}, // BL = 6,
-		{1, -1}, // BR = 7,
+		{-1, +1}, // BR = 7,
 };
 
 /*
