@@ -8,6 +8,6 @@ pushd "$HOME"/ar-lab1/cmake-build-release  > /dev/null
 rm -f ./results/*
 
 # ./seq
-mpiexec -ordered-output -prepend-rank ./$1 -o -t 10000 -n 100
+mpiexec -ordered-output -prepend-rank ./$1 -o -t 10000 -n 120
 #mpiexec ./parallel
 popd  > /dev/null
