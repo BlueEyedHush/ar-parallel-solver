@@ -507,7 +507,7 @@ public:
 	 * | |_______| |
 	 * |_|_______|_|
 	 */
-	const std::array<AreaCoords, 4>& shared_areas() const { return sha; }
+	const std::array<AreaCoords, 4>& shared_areas_for_t_oldest() const { return sha; }
 	
 private:
 	std::vector<AreaCoords> wwas;
@@ -530,13 +530,21 @@ private:
 		isa.bottomLeft.y = intervalLen;
 		isa.upperRight.x = lid - intervalLen;
 		isa.upperRight.y = lid - intervalLen;
-		
-		sha = {
-			AreaCoords(CSet(0, 0), CSet(intervalLen-1, lid)), // left
-			AreaCoords(CSet(innerSize - intervalLen, 0), CSet(lid, lid)), // right
-			AreaCoords(CSet(intervalLen, innerSize-intervalLen), CSet(lid-intervalLen, lid)), // top
-			AreaCoords(CSet(intervalLen, 0), CSet(lid-intervalLen, intervalLen-1)), // bottom
-		};
+
+		std::vector<std::array<AreaCoords, 4>> shas;
+
+		const auto igw = intervalLen; // inner gap width - always constant, regardless of il
+		const auto is = innerSize;
+		for(int il = 0; il < intervalLen; il++) {
+			std::array<AreaCoords, 4> a = {
+				AreaCoords(CSet(-1*il,-1*il), CSet(igw-1,is+il-1)), // left
+				AreaCoords(CSet(is-igw,-1*il), CSet(is+il-1,is+il-1)), // right
+				AreaCoords(CSet(igw,-1*il), CSet(is-igw-1,igw-1)), // top
+				AreaCoords(CSet(igw,is-igw), CSet(is-igw-1,is+il-1)), // bottom
+			};
+			shas.push_back(a);
+		}
+		sha = shas[intervalLen-1];
 	}
 };
 
@@ -545,7 +553,7 @@ void test_wmi() {
 
 	auto work_area = wmi.working_workspace_area();
 	auto innie = wmi.innies_space_area();
-	auto in_bound = wmi.shared_areas();
+	auto in_bound = wmi.shared_areas_for_t_oldest();
 
 	#define STR(X) std::cerr << X.toStr() << std::endl;
 
@@ -757,7 +765,7 @@ int main(int argc, char **argv) {
 
 	auto ww_areas = wi.working_workspace_area();
 	auto wi_area = wi.innies_space_area();
-	auto ws_area = wi.shared_areas();
+	auto ws_area = wi.shared_areas_for_t_oldest();
 
 	for(auto a: ww_areas) {
 		std::cerr << "Workspace area:" << a.toStr() << std::endl;
@@ -802,6 +810,7 @@ int main(int argc, char **argv) {
 		w.set_elf(x_idx, y_idx, eq_val);
 	};
 
+	TimeStepCount iteration = 0;
 	for(TimeStepCount ts = 0; ts < conf.timeSteps; ts++) {
 		DL( "Entering timestep loop, ts = " << ts )
 
@@ -836,8 +845,9 @@ int main(int argc, char **argv) {
 
 		DL( "Entering file dump" )
 		if (unlikely(conf.outputEnabled)) {
-			d.dumpBackbuffer(w, ts*TIME_INTERVAL);
+			d.dumpBackbuffer(w, iteration);
 		}
+		iteration += 1;
 
 		/* after finished iteration, calultions you just made must end up in back-buffer -> you need to swap */
 		DL( "Before swap, ts = " << ts << " t = 0")
@@ -845,7 +855,7 @@ int main(int argc, char **argv) {
 		DL( "After swap, ts = " << ts << " t = 0" )
 
 		/* no we start calculation using cached data */
-		for(int i = 1; i < TIME_INTERVAL; i++) {
+		for(int i = TIME_INTERVAL-2; i >= 0; i--) {
 			iterate_over_area(ww_areas[i], eq_f);
 
 			DL( "front dump - timeshift calculations for t = " << i )
@@ -855,8 +865,9 @@ int main(int argc, char **argv) {
 
 			DL( "Entering file dump" )
 			if (unlikely(conf.outputEnabled)) {
-				d.dumpBackbuffer(w, ts*TIME_INTERVAL + i);
+				d.dumpBackbuffer(w, iteration);
 			}
+			iteration += 1;
 
 			DL( "Before swap, ts = " << ts << " t = " << i )
 			w.swap();
