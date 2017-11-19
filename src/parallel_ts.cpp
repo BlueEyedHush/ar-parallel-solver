@@ -41,7 +41,7 @@ public:
 	std::string toStr() {
 		std::ostringstream ostr;
 
-		for(int i = 0; i < outSideLen; i++) {
+		for(int i = outSideLen-1; i >= 0; i--) {
 			for(int j = 0; j < outSideLen; j++) {
 				ostr << "| " << backingStore[i*outSideLen+j] << " ";
 			}
@@ -67,7 +67,7 @@ private:
 
 		/* rest */
 		int nodeId = 0;
-		for(int i = outSideLen-2; i > 0 ; i--) {
+		for(int i = 1; i < outSideLen-1; i++) {
 			for(int j = 1; j < outSideLen-1; j++) {
 				backingStore[i*outSideLen+j] = nodeId;
 				nodeId += 1;
