@@ -1,10 +1,14 @@
 
 import os
+import sys
 
 base_dir = "/net/people/plgblueeyedhush/ar-lab1/"
 scripts_dir = base_dir + "superc/pth/tests/"
 build_dir = base_dir + "cmake-build-release/"
 results_dir = base_dir + "results/"
+
+parallel_algos = map(lambda postfix: "parallel{}".format(postfix), ["", "_async", "_gap", "_lb", "_ts"])
+all_algorithms = ["seq"] + parallel_algos
 
 def run_batch_string(nodes, tasks_per_node, mem_per_task, script):
     cmd = ("sbatch"
@@ -38,9 +42,14 @@ def run_algo(cmd):
     cli = import_modules_string() + " " + cmd
     os.system(cli)
 
+def get_node_num():
+    return os,environ["SLURM_JOB_NUM_NODES"]
+
 def get_node_id():
     return os.environ["SLURM_PROCID"]
 
 def ensure_dir_exists(dir):
     os.system("mkdir -p " + dir)
 
+def err(msg):
+    sys.stderr.write(msg + "\n")
