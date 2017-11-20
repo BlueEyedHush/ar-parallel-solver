@@ -11,13 +11,13 @@ logs_dir = base_dir + "logs/"
 parallel_algos = map(lambda postfix: "parallel{}".format(postfix), ["", "_async", "_gap", "_lb", "_ts"])
 all_algorithms = ["seq"] + parallel_algos
 
-def run_batch_string(nodes, tasks_per_node, mem_per_task, script, queue="plgrid-testing", log_prefix="ar"):
+def run_batch_string(nodes, tasks_per_node, mem_per_task, script, queue="plgrid-testing", log_prefix="ar", time="00:10:00"):
     cmd = ("sbatch"
     " -J ar-1"
     " -N " + str(nodes) +
     " --ntasks-per-node " + str(tasks_per_node) +
     " --mem-per-cpu " + mem_per_task +
-    " --time=00:10:00"
+    " --time " + time +
     " -A ccbmc6"
     " -p " + queue +
     " --output " + log_prefix + ".so"
