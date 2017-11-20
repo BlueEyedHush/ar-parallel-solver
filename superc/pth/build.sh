@@ -9,7 +9,11 @@ mkdir -p cmake-build-release
 pushd cmake-build-release  > /dev/null
 
 cmake -DCMAKE_C_COMPILER=icc -DCMAKE_CXX_COMPILER=icpc -DCMAKE_BUILD_TYPE=Release ../
-make "$1"
+if [ -z "$1" ]; then
+    make all
+else
+    make "$1"
+fi
 
 popd  > /dev/null
 popd  > /dev/null

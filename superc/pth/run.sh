@@ -7,7 +7,9 @@ pushd "$HOME"/ar-lab1/cmake-build-release  > /dev/null
 
 rm -f ./results/*
 
-# ./seq
-mpiexec -ordered-output -prepend-rank ./$1 -o -t 10000 -n 120
-#mpiexec ./parallel
+if [ "$1" == "seq" ]; then
+    ./seq -t $2 -n $3 $4
+else
+    mpiexec -ordered-output -prepend-rank ./$1 -o -t $2 -n $3 $4
+fi
 popd  > /dev/null
