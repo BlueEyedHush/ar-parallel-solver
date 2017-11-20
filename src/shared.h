@@ -357,6 +357,9 @@ private:
 };
 
 
+void print_result(std::string algo_name, long long int duration, Config c) {
+	std::cout << algo_name << " " << c.timeSteps << " " << c.N << " " << duration << std::endl;
+}
 
 /*
  * Must be defined on (0.0, 1.0)x(0.0, 1.0) surface
