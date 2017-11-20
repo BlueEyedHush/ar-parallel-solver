@@ -358,7 +358,7 @@ private:
 
 
 void print_result(std::string algo_name, long long int duration, Config c) {
-	std::cout << algo_name << " " << c.timeSteps << " " << c.N << " " << duration << std::endl;
+	std::cout << algo_name << "\t" << c.timeSteps << "\t" << c.N << "\t" << duration << std::endl;
 }
 
 /*
