@@ -66,7 +66,7 @@ private:
 	NumType *back;
 
 	inline Coord coords(const Coord x, const Coord y) {
-		return (zeroOffset+outerLength)*x+(y+zeroOffset);
+		return outerLength*(x+zeroOffset)+(y+zeroOffset);
 	}
 };
 
