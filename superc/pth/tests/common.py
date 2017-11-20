@@ -6,11 +6,12 @@ base_dir = "/net/people/plgblueeyedhush/ar-lab1/"
 scripts_dir = base_dir + "superc/pth/tests/"
 build_dir = base_dir + "cmake-build-release/"
 results_dir = base_dir + "results/"
+logs_dir = base_dir + "logs/"
 
 parallel_algos = map(lambda postfix: "parallel{}".format(postfix), ["", "_async", "_gap", "_lb", "_ts"])
 all_algorithms = ["seq"] + parallel_algos
 
-def run_batch_string(nodes, tasks_per_node, mem_per_task, script):
+def run_batch_string(nodes, tasks_per_node, mem_per_task, script, queue="plgrid-testing", log_prefix="ar"):
     cmd = ("sbatch"
     " -J ar-1"
     " -N " + str(nodes) +
@@ -18,9 +19,9 @@ def run_batch_string(nodes, tasks_per_node, mem_per_task, script):
     " --mem-per-cpu " + mem_per_task +
     " --time=00:10:00"
     " -A ccbmc6"
-    " -p plgrid-testing"
-    " --output ar.so"
-    " --error ar.se"
+    " -p " + queue +
+    " --output " + log_prefix + ".so"
+    " --error " + log_prefix + "ar.se"
     " --mail-type=END,FAIL"
     " --mail-user=knawara112@gmail.com " + script)
 
@@ -43,7 +44,7 @@ def run_algo(cmd):
     os.system(cli)
 
 def get_node_num():
-    return os,environ["SLURM_JOB_NUM_NODES"]
+    return os.environ["SLURM_JOB_NUM_NODES"]
 
 def get_node_id():
     return os.environ["SLURM_PROCID"]
