@@ -23,22 +23,24 @@ def run_batch_string(nodes, tasks_per_node, mem_per_task, script):
     print cmd
     return cmd
 
-def run_algo_string(name, time_steps, grid_size, result_file = "", output=False):
-    base = "{}/{} -ts {} -n {} {}".format(build_dir, name, time_steps, grid_size, "-o" if output else "")
+def algo_cli(name, time_steps, grid_size, result_file = "", output=False):
+    base = "{}/{} -t {} -n {} {}".format(build_dir, name, time_steps, grid_size, "-o" if output else "")
     cmd = (base + " >> " + result_file) if result_file else base
     return cmd
 
 def import_modules_string():
     return (
         "module load tools/impi/2018;"
-        "module load plgrid/tools/cmake/3.7.2"
+        "module load plgrid/tools/cmake/3.7.2;"
     )
+
+def run_algo(cmd):
+    cli = import_modules_string() + " " + cmd
+    os.system(cli)
 
 def get_node_id():
     return os.environ["SLURM_PROCID"]
 
 def ensure_dir_exists(dir):
-    r("mkdir -p " + dir)
+    os.system("mkdir -p " + dir)
 
-def r(cmd):
-    os.system(cmd)
