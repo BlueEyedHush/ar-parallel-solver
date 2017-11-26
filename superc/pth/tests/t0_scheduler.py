@@ -15,4 +15,5 @@ for nc in node_counts:
                                scripts_dir + "t0_executor.py",
                                queue="plgrid-short",
                                log_prefix=log_dir + "{}_nodes".format(nc),
-                               time="00:20:00"))
+                               time="00:20:00",
+                               repetition_no=1))

@@ -11,7 +11,7 @@ logs_dir = base_dir + "logs/"
 parallel_algos = map(lambda postfix: "parallel{}".format(postfix), ["", "_async", "_gap", "_lb", "_ts"])
 all_algorithms = ["seq"] + parallel_algos
 
-def run_batch_string(nodes, tasks_per_node, mem_per_task, script, queue="plgrid-testing", log_prefix="ar", time="00:10:00"):
+def run_batch_string(nodes, tasks_per_node, mem_per_task, script, queue="plgrid-testing", log_prefix="ar", time="00:10:00", repetition_no=3):
     process_count = nodes * tasks_per_node
     cmd = ("sbatch"
     " -J ar-1"
@@ -24,7 +24,7 @@ def run_batch_string(nodes, tasks_per_node, mem_per_task, script, queue="plgrid-
     " --output " + log_prefix + ".so"
     " --error " + log_prefix + ".se"
     " --mail-type=END,FAIL"
-    " --mail-user=knawara112@gmail.com " + script + " " + str(process_count))
+    " --mail-user=knawara112@gmail.com " + script + " {} {}").format(process_count, repetition_no)
 
     print cmd
     return cmd
@@ -45,7 +45,10 @@ def run_algo(cmd):
     os.system(cli)
 
 def get_process_num():
-    return sys.argv[1]
+    return int(sys.argv[1])
+
+def get_repetition_no():
+    return int(sys.argv[2])
 
 def get_node_id():
     return os.environ["SLURM_PROCID"]
