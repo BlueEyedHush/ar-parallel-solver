@@ -31,7 +31,7 @@ def run_batch_string(nodes, tasks_per_node, mem_per_task, script, queue="plgrid-
 
 def algo_cli(name, time_steps, grid_size, result_file = "", output=False):
     base = "{}/{} -t {} -n {} {}".format(build_dir, name, time_steps, grid_size, "-o" if output else "")
-    cmd = (base + " >> " + result_file) if result_file else base
+    cmd = (base + " > " + result_file) if result_file else base
     return cmd
 
 def import_modules_string():
