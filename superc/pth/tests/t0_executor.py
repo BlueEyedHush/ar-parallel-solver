@@ -2,4 +2,5 @@
 
 from common import *
 
-run_algos(parallel_algos, n = 7200, ts = 25)
+cmds = build_cmd_sequence(parallel_algos, n = 7200, ts = 25)
+run_commands(cmds)

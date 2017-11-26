@@ -87,9 +87,11 @@ def algo_cli(name, time_steps, grid_size, result_file = "", output=False):
     cmd = (base + " >> " + result_file) if result_file else base
     return cmd
 
-def run_algo(cmd):
-    cli = import_modules_string() + " " + cmd
-    os.system(cli)
+def run_commands(cmds):
+    cmd = "; ".join(cmds)
+    err(cmd)
+    cmd = import_modules_string() + " " + cmd
+    os.system(cmd)
 
 def get_process_num():
     return int(sys.argv[1])
@@ -110,7 +112,7 @@ def get_algorithm_list(parallels):
 def get_result_path(ts, n):
     return get_results_dir() + "{}_{}_{}_{}".format(ts, n, get_node_id(), get_process_num())
 
-def run_algos(parallels, n, ts):
+def build_cmd_sequence(parallels, n, ts):
     result_path = get_result_path(ts, n)
 
     full_cli = []
@@ -118,7 +120,4 @@ def run_algos(parallels, n, ts):
         for i in range(0, get_repetition_no()):
             full_cli.append(algo_cli(algo_name, ts, n, result_path))
 
-    cli = "; ".join(full_cli)
-    err(cli)
-    run_algo(cli)
-
+    return full_cli
