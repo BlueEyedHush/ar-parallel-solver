@@ -706,7 +706,7 @@ int main(int argc, char **argv) {
 	auto duration = timer.stop();
 
 	if(cm.getNodeId() == 0) {
-		print_result("parallel_gap", duration, conf);
+		print_result("parallel_gap", cm.getNodeCount(), duration, conf);
 		std::cerr << ((double)duration)/1000000000 << " s" << std::endl;
 	}
 

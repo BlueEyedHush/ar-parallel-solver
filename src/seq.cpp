@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
 	}
 
 	auto duration = timer.stop();
-	print_result("seq", duration, conf);
+	print_result("seq", 1, duration, conf);
 	std::cerr << ((double)duration)/1000000000 << " s" << std::endl;
 
 	return 0;

@@ -357,8 +357,12 @@ private:
 };
 
 
-void print_result(std::string algo_name, long long int duration, Config c) {
-	std::cout << algo_name << "\t" << c.timeSteps << "\t" << c.N << "\t" << duration/1000000 << std::endl;
+void print_result(std::string algo_name, int nodeCount, long long int duration, Config c) {
+	std::cout << algo_name << "\t"
+	          << nodeCount << "\t"
+	          << c.timeSteps << "\t"
+	          << c.N << "\t"
+	          << duration/1000000 << std::endl;
 }
 
 /*
