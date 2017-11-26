@@ -7,6 +7,8 @@ scripts_dir = base_dir + "superc/pth/tests/"
 build_dir = base_dir + "cmake-build-release/"
 results_dir = base_dir + "results/"
 logs_dir = base_dir + "logs/"
+mpiexec_prefix = "mpiexec " #"mpiexec -ordered-output -prepend-rank "
+
 
 parallel_algos = map(lambda postfix: "parallel{}".format(postfix), ["", "_async", "_gap", "_lb", "_ts"])
 all_algorithms = ["seq"] + parallel_algos
@@ -38,7 +40,12 @@ def run_batch_string(nodes,
     return cmd
 
 def algo_cli(name, time_steps, grid_size, result_file = "", output=False):
-    base = "{}/{} -t {} -n {} {}".format(build_dir, name, time_steps, grid_size, "-o" if output else "")
+    if name == 'seq':
+        prefix = ""
+    else:
+        prefix = mpiexec_prefix
+
+    base = prefix + "{}/{} -t {} -n {} {}".format(build_dir, name, time_steps, grid_size, "-o" if output else "")
     cmd = (base + " >> " + result_file) if result_file else base
     return cmd
 
