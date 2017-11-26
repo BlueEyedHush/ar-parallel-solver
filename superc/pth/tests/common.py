@@ -54,7 +54,8 @@ def run_batch_string(nodes,
 
 def insert_separator_into_result_files(result_dir):
     separator = '\\n~~~~ `date "+%H:%M:%S %d-%m-%Y"` ~~~~\\n'
-    os.system("for f in {}*; do echo -e >> \"{}\"; done".format(result_dir, separator))
+    cmd = "for f in {}*; do echo -e \"{}\" >> $f; done".format(result_dir, separator)
+    os.system(cmd)
 
 def prepare_log_and_result_dirs_for_test(test_id):
     log_dir = logs_dir + "t{}/".format(test_id)
