@@ -732,7 +732,7 @@ std::string filenameGenerator(int nodeId) {
 	return oss.str();
 }
 
-const Coord TIME_INTERVAL = 2;
+const Coord TIME_INTERVAL = 4;
 
 int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
@@ -811,7 +811,9 @@ int main(int argc, char **argv) {
 	};
 
 	TimeStepCount iteration = 0;
-	for(TimeStepCount ts = 0; ts < conf.timeSteps; ts++) {
+	TimeStepCount intervals = conf.timeSteps/TIME_INTERVAL;
+	std::cerr << "Executing " << TIME_INTERVAL*intervals << " iteration, was requested " << conf.timeSteps << std::endl;
+	for(TimeStepCount ts = 0; ts < intervals; ts++) {
 		DL( "Entering timestep loop, ts = " << ts )
 
 		DL( "front dump - before innies calculated" )
