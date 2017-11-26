@@ -8,6 +8,11 @@ node_counts = [1, 4, 9, 16]
 
 log_dir = logs_dir + "t0/"
 ensure_dir_exists(log_dir)
+
+rdir = results_dir + "/t0/"
+ensure_dir_exists(rdir)
+insert_separator_into_result_files(rdir)
+
 for nc in node_counts:
     os.system(run_batch_string(nc,
                                1,
@@ -16,4 +21,5 @@ for nc in node_counts:
                                queue="plgrid-short",
                                log_prefix=log_dir + "{}_nodes".format(nc),
                                time="00:20:00",
-                               repetition_no=1))
+                               repetition_no=1,
+                               results_dir=rdir))

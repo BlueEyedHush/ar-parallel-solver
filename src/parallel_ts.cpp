@@ -732,7 +732,7 @@ std::string filenameGenerator(int nodeId) {
 	return oss.str();
 }
 
-const Coord TIME_INTERVAL = 4;
+const Coord TIME_INTERVAL = 5;
 
 int main(int argc, char **argv) {
 	std::cerr << __FILE__ << std::endl;
