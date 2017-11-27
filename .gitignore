@@ -3,3 +3,4 @@ cmake-build*/
 pass
 animate.gif
 results/
+*.pyc
